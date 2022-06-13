@@ -1,10 +1,12 @@
 import asyncio
 import json
+from typing import Dict
 import websockets
 import websockets.client
+import websockets.legacy.client
 
 
-def connect(g3_hostname, wspath="/websocket"):
+def connect(g3_hostname, wspath="/websocket") -> websockets.legacy.client.Connect:
     ws_uri = "ws://{}{}".format(g3_hostname, wspath)
     return websockets.connect(
         ws_uri,
@@ -21,7 +23,7 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
         self._message_map = {}
         self._signals_map = {}
         self._event_loop = asyncio.get_running_loop()
-        if not subprotocols:
+        if subprotocols is None:
             subprotocols = self.DEFAULT_SUBPROTOCOLS
         super().__init__(subprotocols=subprotocols, **kwargs)
 
@@ -33,13 +35,29 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
             json_message = json.loads(message)
             self._message_map[json_message["id"]].set_result(json_message)
 
-    async def require(self, request):
+    async def require(self, request: Dict):
         self._message_count += 1
-        json_request = json.loads(request)
-        json_request["id"] = self._message_count
-        updated_request = json.dumps(json_request)
-        await self.send(updated_request)
+        request["id"] = self._message_count
+        string_request_with_id = json.dumps(request)
+        await self.send(string_request_with_id)
         future = self._message_map[
             self._message_count
         ] = self._event_loop.create_future()
         return await future
+
+    async def require_get(self, path, params=None):
+        return await self.require(self.generate_get_request(path, params))
+
+    async def require_post(self, path, body=None):
+        return await self.require(self.generate_post_request(path, body))
+
+    @staticmethod
+    def generate_get_request(path, params=None):
+        request = {"path": path, "method": "GET"}
+        if params is not None:
+            request["params"] = params
+        return request
+
+    @staticmethod
+    def generate_post_request(path, body=None):
+        return {"path": path, "method": "POST", "body": body}
