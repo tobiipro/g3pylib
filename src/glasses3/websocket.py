@@ -20,7 +20,7 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
 
     def __init__(self, *, subprotocols=None, **kwargs):
         self._message_count = 0
-        self._message_map = {}
+        self._future_messages = {}
         self._signals_map = {}
         self._event_loop = asyncio.get_running_loop()
         if subprotocols is None:
@@ -33,14 +33,14 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
     async def _receiver_task(self):
         async for message in self:
             json_message = json.loads(message)
-            self._message_map[json_message["id"]].set_result(json_message)
+            self._future_messages[json_message["id"]].set_result(json_message)
 
     async def require(self, request: Dict):
         self._message_count += 1
         request["id"] = self._message_count
         string_request_with_id = json.dumps(request)
         await self.send(string_request_with_id)
-        future = self._message_map[
+        future = self._future_messages[
             self._message_count
         ] = self._event_loop.create_future()
         return await future
