@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import AsyncIterator, cast
 from contextlib import asynccontextmanager
 from .recorder import Recorder
 import glasses3.websocket
@@ -11,8 +13,9 @@ class Glasses3:
 
     @classmethod
     @asynccontextmanager
-    async def connect(cls, g3_hostname):
+    async def connect(cls, g3_hostname) -> AsyncIterator[Glasses3]:
         async with glasses3.websocket.connect(g3_hostname) as g3:
+            g3 = cast(G3WebSocketClientProtocol, g3)
             g3.start_receiver_task()
             yield cls(g3)
 
