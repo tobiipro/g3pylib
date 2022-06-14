@@ -1,8 +1,13 @@
+import asyncio
+import json
+import logging
+
 import websockets
+
 import glasses3.websocket
 from glasses3 import Glasses3
-import json
-import asyncio
+
+logging.basicConfig(level=logging.DEBUG)
 
 g3_hostname = "tg03b-080200045321"
 test_request = {"path": "/recorder", "method": "GET"}
@@ -15,8 +20,8 @@ async def use_case_1():
         g3ws.start_receiver_task()
         response = await g3ws.require(test_request)
         response2 = await g3ws.require(test_request)
-        print("uc1-r1", json.dumps(response, indent=2))
-        print("uc1-r2", json.dumps(response2, indent=2))
+        print("uc1-r1", response)
+        print("uc1-r2", response2)
 
 
 async def use_case_2():
@@ -27,8 +32,8 @@ async def use_case_2():
         g3ws.start_receiver_task()
         response = await g3ws.require(test_request)
         response2 = await g3ws.require(test_request)
-        print("uc2-r1", json.dumps(response, indent=2))
-        print("uc2-r2", json.dumps(response2, indent=2))
+        print("uc2-r1", response)
+        print("uc2-r2", response2)
 
 
 async def use_case_3():
@@ -39,6 +44,7 @@ async def use_case_3():
 
 
 async def use_case_4():
+    raise NotImplementedError
     g3_list = Glasses3.find()
     async with g3_list[0] as g3:
         recorder = g3.get_recorder()
@@ -52,7 +58,7 @@ async def use_case_5():
 
 
 async def handler():
-    await asyncio.gather(use_case_5())
+    await asyncio.gather(use_case_1(), use_case_2(), use_case_5())
 
 
 def main():

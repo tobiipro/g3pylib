@@ -1,14 +1,18 @@
 from __future__ import annotations
+
+import logging
+from contextlib import asynccontextmanager
 from typing import AsyncIterator, cast
-from contextlib import asynccontextmanager
-from .recorder import Recorder
+
 import glasses3.websocket
+
+from .recorder import Recorder
 from .websocket import G3WebSocketClientProtocol
-from contextlib import asynccontextmanager
 
 
 class Glasses3:
-    def __init__(self, connection) -> None:
+    def __init__(self, connection, logger=None) -> None:
+        self.logger = logging.getLogger(__name__) if logger is None else logger
         self._connection: G3WebSocketClientProtocol = connection
 
     @classmethod

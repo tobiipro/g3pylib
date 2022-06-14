@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import asyncio
 import json
+import logging
 from typing import Dict, Type
-from websockets.typing import Subprotocol
+
 import websockets
-from websockets.client import connect as websockets_connect
 import websockets.client
 import websockets.legacy.client
+from websockets.client import connect as websockets_connect
+from websockets.typing import Subprotocol
 
 
 def connect(g3_hostname, wspath="/websocket") -> websockets.legacy.client.Connect:
@@ -22,6 +25,7 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
     DEFAULT_SUBPROTOCOLS = [Subprotocol("g3api")]
 
     def __init__(self, *, subprotocols=None, **kwargs):
+        self.g3_logger = logging.getLogger(__name__)
         self._message_count = 0
         self._future_messages = {}
         self._signals_map = {}
@@ -37,7 +41,8 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
         return cls(*args, **kwargs)
 
     def start_receiver_task(self) -> None:
-        self._receiver = asyncio.create_task(self._receiver_task())
+        self.logger.debug("Receiver task starting")
+        self._receiver = asyncio.create_task(self._receiver_task(), name="g3_receiver")
 
     async def _receiver_task(self) -> None:
         async for message in self:
