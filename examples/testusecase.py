@@ -1,22 +1,25 @@
 import asyncio
 import json
 import logging
+from typing import cast
 
-import websockets
+from websockets.client import connect as websockets_connect
 
-import glasses3.websocket
+import glasses3.websocket as g3_websocket
 from glasses3 import Glasses3
+from glasses3.typing import Hostname, UriPath
 
 logging.basicConfig(level=logging.DEBUG)
 
-g3_hostname = "tg03b-080200045321"
+g3_hostname = Hostname("tg03b-080200045321")
 test_request = {"path": "/recorder", "method": "GET"}
-test_request_path = "/recorder"
+test_request_path = UriPath("/recorder")
 test_request_params = {"help": True}
 
 
 async def use_case_1():
-    async with glasses3.websocket.connect(g3_hostname) as g3ws:
+    async with g3_websocket.connect(g3_hostname) as g3ws:
+        g3ws = cast(g3_websocket.G3WebSocketClientProtocol, g3ws)
         g3ws.start_receiver_task()
         response = await g3ws.require(test_request)
         response2 = await g3ws.require(test_request)
@@ -25,10 +28,11 @@ async def use_case_1():
 
 
 async def use_case_2():
-    async with websockets.connect(
+    async with websockets_connect(
         "ws://{}/websockets".format(g3_hostname),
-        create_protocol=glasses3.websocket.G3WebSocketClientProtocol,
+        create_protocol=g3_websocket.G3WebSocketClientProtocol.factory,
     ) as g3ws:
+        g3ws = cast(g3_websocket.G3WebSocketClientProtocol, g3ws)
         g3ws.start_receiver_task()
         response = await g3ws.require(test_request)
         response2 = await g3ws.require(test_request)
@@ -37,7 +41,8 @@ async def use_case_2():
 
 
 async def use_case_3():
-    async with glasses3.websocket.connect(g3_hostname) as g3ws:
+    async with g3_websocket.connect(g3_hostname) as g3ws:
+        g3ws = cast(g3_websocket.G3WebSocketClientProtocol, g3ws)
         g3ws.start_receiver_task()
         response = await g3ws.require_get(test_request_path)
         print("uc3-r1", json.dumps(response, indent=2))
@@ -54,7 +59,7 @@ async def use_case_4():
 
 async def use_case_5():
     async with Glasses3.connect(g3_hostname) as g3:
-        print(await g3.get_recorder())
+        print(g3.recorder)
 
 
 async def handler():
