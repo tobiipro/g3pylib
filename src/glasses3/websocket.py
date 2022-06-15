@@ -36,11 +36,12 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
         self.g3_logger = logging.getLogger(__name__)
         self._message_count = 0
         self._future_messages: Dict[MessageId, asyncio.Future[str]] = {}
-        self._signals_map = {}
+        self._signals_map: Dict[Any, Any] = {}
         self._event_loop = asyncio.get_running_loop()
         if subprotocols is None:
             subprotocols = self.DEFAULT_SUBPROTOCOLS
-        super().__init__(subprotocols=subprotocols, **kwargs)  # type: ignore (websockets has not typed this function as strictly as pyright wants)
+        # Type ignored since websockets has not typed this function as strictly as pyright wants
+        super().__init__(subprotocols=subprotocols, **kwargs)  # type: ignore
 
     @classmethod
     def factory(
