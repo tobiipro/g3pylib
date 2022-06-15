@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
-from typing import Any, Dict, List, Optional, Type
+from abc import abstractmethod
+from collections import defaultdict
+from typing import Any, Coroutine, Dict, List, Optional, Tuple, Type
 
 import websockets
 import websockets.client
@@ -11,7 +14,15 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
-from .typing import Hostname, JsonDict, MessageId, UriPath
+from .typing import (
+    Hostname,
+    JsonDict,
+    MessageId,
+    SignalBody,
+    SignalId,
+    SubscriptionId,
+    UriPath,
+)
 
 DEFAULT_WEBSOCKET_PATH = UriPath("/websocket")
 
@@ -27,7 +38,69 @@ def connect(
     )
 
 
-class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
+class UnsubscribeError(Exception):
+    """Raised when unsubscribing to a signal is unsuccessful."""
+
+
+class SignalSubscriptionTracker:
+    def __init__(self):
+        self._subscription_count = 0
+        self._signal_id_by_path: Dict[UriPath, SignalId] = {}
+        self._signal_queues_by_id: Dict[
+            SignalId, Dict[SubscriptionId, asyncio.Queue[SignalBody]]
+        ] = defaultdict(lambda: dict())
+
+    async def subscribe_to_signal(
+        self, signal_uri_path: UriPath
+    ) -> Tuple[asyncio.Queue[SignalBody], functools.partial[Coroutine[Any, Any, None]]]:
+        self._subscription_count += 1
+        signal_id = self._signal_id_by_path.get(signal_uri_path)
+        if signal_id is None:
+            signal_id = self._signal_id_by_path[
+                signal_uri_path
+            ] = await self.require_post_subscribe(signal_uri_path)
+
+        signal_queue: asyncio.Queue[SignalBody] = asyncio.Queue()
+        self._signal_queues_by_id[signal_id][
+            SubscriptionId(self._subscription_count)
+        ] = signal_queue
+        return (
+            signal_queue,
+            functools.partial(
+                self.unsubscribe_to_signal,  # Partial på coroutine kanske inte funkar????
+                signal_uri_path,
+                signal_id,
+                SubscriptionId(self._subscription_count),
+            ),
+        )
+
+    async def unsubscribe_to_signal(
+        self,
+        signal_uri_path: UriPath,
+        signal_id: SignalId,
+        subscription_id: SubscriptionId,
+    ) -> None:
+        signal_queues = self._signal_queues_by_id[signal_id]
+        del signal_queues[subscription_id]
+        if len(signal_queues) == 0:
+            if not await self.require_post_unsubscribe(signal_uri_path, signal_id):
+                raise UnsubscribeError
+            del self._signal_id_by_path[signal_uri_path]
+
+    @abstractmethod
+    async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+        pass
+
+    @abstractmethod
+    async def require_post_unsubscribe(
+        self, signal_uri_path: UriPath, signal_id: SignalId
+    ) -> bool:
+        pass
+
+
+class G3WebSocketClientProtocol(
+    websockets.client.WebSocketClientProtocol, SignalSubscriptionTracker
+):
     DEFAULT_SUBPROTOCOLS = [Subprotocol("g3api")]
 
     def __init__(
@@ -36,7 +109,7 @@ class G3WebSocketClientProtocol(websockets.client.WebSocketClientProtocol):
         self.g3_logger = logging.getLogger(__name__)
         self._message_count = 0
         self._future_messages: Dict[MessageId, asyncio.Future[str]] = {}
-        self._signals_map: Dict[Any, Any] = {}
+        self._signal_subscription_tracker = SignalSubscriptionTracker()
         self._event_loop = asyncio.get_running_loop()
         if subprotocols is None:
             subprotocols = self.DEFAULT_SUBPROTOCOLS
