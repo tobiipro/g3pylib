@@ -1,4 +1,14 @@
 {
-    "python.analysis.typeCheckingMode": "strict",
-    "python.analysis.diagnosticMode": "workspace"
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.diagnosticMode": "workspace",
+    "python.formatting.provider": "black",
+    "python.languageServer": "Pylance",
+    "python.sortImports.path": "isort",
+    "cSpell.words": [
+        "pyright",
+        "subprotocol",
+        "subprotocols",
+        "websockets"
+    ],
+    "cSpell.language": "en,sv-SE",
 }
