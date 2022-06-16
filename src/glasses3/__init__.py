@@ -6,14 +6,17 @@ from typing import AsyncIterator, Optional, cast
 
 import glasses3.websocket
 
+from .g3typing import Hostname, LoggerLike
 from .recorder import Recorder
-from .typing import Hostname, LoggerLike
 from .websocket import G3WebSocketClientProtocol
 
 
 class Glasses3:
     def __init__(
-        self, connection: G3WebSocketClientProtocol, logger: Optional[LoggerLike] = None
+        # Type ignored in this file since LoggerAdapter does not support generic typing
+        self,
+        connection: G3WebSocketClientProtocol,
+        logger: Optional[LoggerLike] = None,
     ) -> None:
         self.logger = logging.getLogger(__name__) if logger is None else logger
         self._connection: G3WebSocketClientProtocol = connection

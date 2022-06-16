@@ -4,7 +4,7 @@ import asyncio
 import functools
 import json
 import logging
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Coroutine, Dict, List, Optional, Tuple, Type
 
@@ -14,7 +14,7 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
-from .typing import (
+from .g3typing import (
     Hostname,
     JsonDict,
     MessageId,
@@ -42,13 +42,17 @@ class UnsubscribeError(Exception):
     """Raised when unsubscribing to a signal is unsuccessful."""
 
 
-class SignalSubscriptionTracker:
-    def __init__(self):
+class InvalidResponseError(Exception):
+    """Raised when the server responds with an invalid message."""
+
+
+class SignalSubscriptionHandler(ABC):
+    def init_signal_subscription_handling(self) -> None:
         self._subscription_count = 0
         self._signal_id_by_path: Dict[UriPath, SignalId] = {}
         self._signal_queues_by_id: Dict[
             SignalId, Dict[SubscriptionId, asyncio.Queue[SignalBody]]
-        ] = defaultdict(lambda: dict())
+        ] = defaultdict(dict)
 
     async def subscribe_to_signal(
         self, signal_uri_path: UriPath
@@ -67,7 +71,7 @@ class SignalSubscriptionTracker:
         return (
             signal_queue,
             functools.partial(
-                self.unsubscribe_to_signal,  # Partial på coroutine kanske inte funkar????
+                self.unsubscribe_to_signal,
                 signal_uri_path,
                 signal_id,
                 SubscriptionId(self._subscription_count),
@@ -87,19 +91,23 @@ class SignalSubscriptionTracker:
                 raise UnsubscribeError
             del self._signal_id_by_path[signal_uri_path]
 
+    def receive_signal(self, signal_id: SignalId, signal_body: SignalBody):
+        for signal_queue in self._signal_queues_by_id[signal_id].values():
+            signal_queue.put_nowait(SignalBody(signal_body.copy()))
+
     @abstractmethod
     async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def require_post_unsubscribe(
         self, signal_uri_path: UriPath, signal_id: SignalId
     ) -> bool:
-        pass
+        raise NotImplementedError
 
 
 class G3WebSocketClientProtocol(
-    websockets.client.WebSocketClientProtocol, SignalSubscriptionTracker
+    websockets.client.WebSocketClientProtocol, SignalSubscriptionHandler
 ):
     DEFAULT_SUBPROTOCOLS = [Subprotocol("g3api")]
 
@@ -108,13 +116,13 @@ class G3WebSocketClientProtocol(
     ):
         self.g3_logger = logging.getLogger(__name__)
         self._message_count = 0
-        self._future_messages: Dict[MessageId, asyncio.Future[str]] = {}
-        self._signal_subscription_tracker = SignalSubscriptionTracker()
+        self._future_messages: Dict[MessageId, asyncio.Future[JsonDict]] = {}
         self._event_loop = asyncio.get_running_loop()
         if subprotocols is None:
             subprotocols = self.DEFAULT_SUBPROTOCOLS
         # Type ignored since websockets has not typed this function as strictly as pyright wants
         super().__init__(subprotocols=subprotocols, **kwargs)  # type: ignore
+        self.init_signal_subscription_handling()
 
     @classmethod
     def factory(
@@ -128,10 +136,17 @@ class G3WebSocketClientProtocol(
 
     async def _receiver_task(self) -> None:
         async for message in self:
-            json_message = json.loads(message)
-            self._future_messages[json_message["id"]].set_result(json_message)
+            json_message: JsonDict = json.loads(message)
+            self.g3_logger.info(f"Received {json_message}")
+            match json_message:
+                case {"id": _}:
+                    self._future_messages[json_message["id"]].set_result(json_message)
+                case {"signal": signal_id, "body": signal_body}:
+                    self.receive_signal(signal_id, signal_body)
+                case _:
+                    raise InvalidResponseError
 
-    async def require(self, request: JsonDict) -> str:
+    async def require(self, request: JsonDict) -> JsonDict:
         self._message_count += 1
         request["id"] = self._message_count
         string_request_with_id = json.dumps(request)
@@ -143,11 +158,27 @@ class G3WebSocketClientProtocol(
 
     async def require_get(
         self, path: UriPath, params: Optional[JsonDict] = None
-    ) -> str:
+    ) -> JsonDict:
         return await self.require(self.generate_get_request(path, params))
 
-    async def require_post(self, path: UriPath, body: Optional[str] = None) -> str:
+    async def require_post(self, path: UriPath, body: Optional[str] = None) -> JsonDict:
         return await self.require(self.generate_post_request(path, body))
+
+    async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+        response = await self.require_post(signal_uri_path)
+        try:
+            return response["body"]
+        except (KeyError, json.JSONDecodeError):
+            raise InvalidResponseError
+
+    async def require_post_unsubscribe(
+        self, signal_uri_path: UriPath, signal_id: SignalId
+    ) -> bool:
+        response = await self.require_post(signal_uri_path, signal_id)
+        try:
+            return response["body"]
+        except (KeyError, json.JSONDecodeError):
+            raise InvalidResponseError
 
     @staticmethod
     def generate_get_request(
