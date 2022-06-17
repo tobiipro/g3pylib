@@ -30,6 +30,14 @@ DEFAULT_WEBSOCKET_PATH = UriPath("/websocket")
 def connect(
     g3_hostname: Hostname, websocket_path: UriPath = DEFAULT_WEBSOCKET_PATH
 ) -> websockets.legacy.client.Connect:
+    """Sets up a websocket connection with a Glasses3 device.
+
+    Uses WebSocketClientProtocol from websockets to create a connection with the supplied hostname and websocket path.
+
+    g3_hostname: The hostname of the Glasses3 device.
+
+    websockets.legacy.client.Connect: Connect object that communicates with Glasses3.
+    """
     ws_uri = "ws://{}{}".format(g3_hostname, websocket_path)
     return websockets_connect(
         ws_uri,
@@ -139,8 +147,8 @@ class G3WebSocketClientProtocol(
             json_message: JsonDict = json.loads(message)
             self.g3_logger.info(f"Received {json_message}")
             match json_message:
-                case {"id": _}:
-                    self._future_messages[json_message["id"]].set_result(json_message)
+                case {"id": message_id}:
+                    self._future_messages[message_id].set_result(json_message)
                 case {"signal": signal_id, "body": signal_body}:
                     self.receive_signal(signal_id, signal_body)
                 case _:

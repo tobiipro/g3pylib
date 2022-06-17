@@ -72,10 +72,10 @@ async def use_case_signal():
         queue2, unsubscribe2 = await g3ws.subscribe_to_signal(
             UriPath("/recorder:started")
         )
-        await unsubscribe1()
-        logging.info(await queue2.get())
-        await unsubscribe2()
         logging.info(await queue1.get())
+        logging.info(await queue2.get())
+        await unsubscribe1()
+        await unsubscribe2()
 
 
 async def handler():
