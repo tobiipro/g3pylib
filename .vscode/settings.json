@@ -5,7 +5,10 @@
     "python.languageServer": "Pylance",
     "python.sortImports.path": "isort",
     "cSpell.words": [
+        "asyncio",
+        "Docstrings",
         "pyright",
+        "PYTHONDEVMODE",
         "subprotocol",
         "subprotocols",
         "websockets"
