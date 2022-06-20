@@ -7,12 +7,12 @@ from websockets.client import connect as websockets_connect
 
 import glasses3.websocket as g3_websocket
 from glasses3 import Glasses3
-from glasses3.g3typing import Hostname, UriPath
+from glasses3.g3typing import Hostname, JSONDict, UriPath
 
 logging.basicConfig(level=logging.DEBUG)
 
-g3_hostname = Hostname("tg03b-080200045321")
-test_request = {"path": "/recorder", "method": "GET"}
+g3_hostname = Hostname("tg02b-080105022801")  # tg03b-080200045321
+test_request: JSONDict = {"path": "/recorder", "method": "GET"}
 test_request_path = UriPath("/recorder")
 test_request_params = {"help": True}
 
@@ -59,7 +59,7 @@ async def use_case_4():
 
 async def use_case_5():
     async with Glasses3.connect(g3_hostname) as g3:
-        print(g3.recorder)
+        print(await g3.recorder.get_created())
 
 
 async def use_case_signal():
@@ -74,12 +74,12 @@ async def use_case_signal():
         )
         logging.info(await queue1.get())
         logging.info(await queue2.get())
-        await unsubscribe1()
-        await unsubscribe2()
+        await unsubscribe1
+        await unsubscribe2
 
 
 async def handler():
-    await asyncio.gather(use_case_signal())
+    await asyncio.gather(use_case_5())
 
 
 def main():

@@ -8,8 +8,9 @@ else:
 Hostname = NewType("Hostname", str)
 MessageId = NewType("MessageId", int)
 UriPath = NewType("UriPath", str)
-JsonDict = Dict[str, Any]
+JSONObject = Union[int, str, bool, Dict[str, "JSONObject"], List["JSONObject"], None]
+JSONDict = Dict[str, JSONObject]
 SignalType = NewType("SignalType", str)
 SignalId = NewType("SignalId", str)
-SignalBody = NewType("SignalBody", List[Any])
+SignalBody = NewType("SignalBody", List[JSONObject])
 SubscriptionId = NewType("SubscriptionId", int)

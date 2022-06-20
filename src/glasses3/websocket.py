@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import json
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Coroutine, Dict, List, Optional, Tuple, Type
+from typing import Any, Awaitable, Dict, List, Optional, Tuple, Type, cast
 
 import websockets
 import websockets.client
@@ -16,7 +15,8 @@ from websockets.typing import Subprotocol
 
 from .g3typing import (
     Hostname,
-    JsonDict,
+    JSONDict,
+    JSONObject,
     MessageId,
     SignalBody,
     SignalId,
@@ -74,11 +74,11 @@ class SignalSubscriptionHandler(ABC):
 
     async def subscribe_to_signal(
         self, signal_uri_path: UriPath
-    ) -> Tuple[asyncio.Queue[SignalBody], functools.partial[Coroutine[Any, Any, None]]]:
+    ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
         """Sets up a subscription to the signal with the specified `signal_uri_path`.
 
-        Returns a tuple with a queue and a callable. Upon receiving signals messages, the message
-        body is added to the queue. The callable can be called to unsubscribe to the signal.
+        Returns a tuple with a queue and an awaitable. Upon receiving signals messages, the message
+        body is added to the queue. The awaitable can be awaited to unsubscribe to the signal.
         """
         self._subscription_count += 1
         signal_id = self._signal_id_by_path.get(signal_uri_path)
@@ -93,8 +93,7 @@ class SignalSubscriptionHandler(ABC):
         ] = signal_queue
         return (
             signal_queue,
-            functools.partial(
-                self._unsubscribe_to_signal,
+            self._unsubscribe_to_signal(
                 signal_uri_path,
                 signal_id,
                 SubscriptionId(self._subscription_count),
@@ -148,7 +147,7 @@ class G3WebSocketClientProtocol(
         """Initializes super class properties and additional properties needed for the communication."""
         self.g3_logger = logging.getLogger(__name__)
         self._message_count = 0
-        self._future_messages: Dict[MessageId, asyncio.Future[JsonDict]] = {}
+        self._future_messages: Dict[MessageId, asyncio.Future[JSONObject]] = {}
         self._event_loop = asyncio.get_running_loop()
         if subprotocols is None:
             subprotocols = self.DEFAULT_SUBPROTOCOLS
@@ -184,17 +183,22 @@ class G3WebSocketClientProtocol(
     async def _receiver_task(self) -> None:
         """Listens for and handles/delegates incoming messages."""
         async for message in self:
-            json_message: JsonDict = json.loads(message)
+            json_message: JSONObject = json.loads(message)
             self.g3_logger.info(f"Received {json_message}")
             match json_message:
-                case {"id": message_id}:
-                    self._future_messages[message_id].set_result(json_message)
+                case {"id": message_id, "body": message_body}:
+                    del json_message["id"]
+                    self._future_messages[cast(MessageId, message_id)].set_result(
+                        message_body
+                    )
                 case {"signal": signal_id, "body": signal_body}:
-                    self.receive_signal(signal_id, signal_body)
+                    self.receive_signal(
+                        cast(SignalId, signal_id), cast(SignalBody, signal_body)
+                    )
                 case _:
                     raise InvalidResponseError
 
-    async def require(self, request: JsonDict) -> JsonDict:
+    async def require(self, request: JSONDict) -> JSONObject:
         """Sends a request  with a unique id and returns the response."""
         self._message_count += 1
         request["id"] = self._message_count
@@ -206,20 +210,22 @@ class G3WebSocketClientProtocol(
         return await future
 
     async def require_get(
-        self, path: UriPath, params: Optional[JsonDict] = None
-    ) -> JsonDict:
+        self, path: UriPath, params: Optional[JSONObject] = None
+    ) -> JSONObject:
         """Sends a GET request and returns the response."""
         return await self.require(self.generate_get_request(path, params))
 
-    async def require_post(self, path: UriPath, body: Optional[str] = None) -> JsonDict:
+    async def require_post(
+        self, path: UriPath, body: Optional[JSONObject] = None
+    ) -> JSONObject:
         """Sends a POST request and returns the response."""
         return await self.require(self.generate_post_request(path, body))
 
     async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
         """Sends a subscription POST request and returns the body of the response."""
-        response = await self.require_post(signal_uri_path)
+        response = cast(JSONDict, await self.require_post(signal_uri_path))
         try:
-            return response["body"]
+            return cast(SignalId, response["body"])
         except (KeyError, json.JSONDecodeError):
             raise InvalidResponseError
 
@@ -227,23 +233,25 @@ class G3WebSocketClientProtocol(
         self, signal_uri_path: UriPath, signal_id: SignalId
     ) -> bool:
         """Sends an unsubscription POST request and returns a boolean indicating its success."""
-        response = await self.require_post(signal_uri_path, signal_id)
+        response = cast(JSONDict, await self.require_post(signal_uri_path, signal_id))
         try:
-            return response["body"]
+            return cast(bool, response["body"])
         except (KeyError, json.JSONDecodeError):
             raise InvalidResponseError
 
     @staticmethod
     def generate_get_request(
-        path: UriPath, params: Optional[JsonDict] = None
-    ) -> JsonDict:
+        path: UriPath, params: Optional[JSONObject] = None
+    ) -> JSONDict:
         """Generates a GET request."""
-        request: JsonDict = {"path": path, "method": "GET"}
+        request: JSONDict = {"path": path, "method": "GET"}
         if params is not None:
             request["params"] = params
         return request
 
     @staticmethod
-    def generate_post_request(path: UriPath, body: Optional[str] = None) -> JsonDict:
+    def generate_post_request(
+        path: UriPath, body: Optional[JSONObject] = None
+    ) -> JSONDict:
         """Generates a POST request."""
-        return {"path": path, "method": "POST", "body": body}
+        return {"path": cast(str, path), "method": "POST", "body": body}
