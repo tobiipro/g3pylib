@@ -145,8 +145,7 @@ class G3WebSocketClientProtocol(
     def __init__(
         self, *, subprotocols: Optional[List[Subprotocol]] = None, **kwargs: Any
     ):
-        """Initializes a websocket protocol, a `SignalSubscriptionHandler`, and properties needed
-        for the communication."""
+        """Initializes super class properties and additional properties needed for the communication."""
         self.g3_logger = logging.getLogger(__name__)
         self._message_count = 0
         self._future_messages: Dict[MessageId, asyncio.Future[JsonDict]] = {}
@@ -183,7 +182,7 @@ class G3WebSocketClientProtocol(
         self._receiver = asyncio.create_task(self._receiver_task(), name="g3_receiver")
 
     async def _receiver_task(self) -> None:
-        """ """
+        """Listens for and handles/delegates incoming messages."""
         async for message in self:
             json_message: JsonDict = json.loads(message)
             self.g3_logger.info(f"Received {json_message}")
@@ -196,6 +195,7 @@ class G3WebSocketClientProtocol(
                     raise InvalidResponseError
 
     async def require(self, request: JsonDict) -> JsonDict:
+        """Sends a request  with a unique id and returns the response."""
         self._message_count += 1
         request["id"] = self._message_count
         string_request_with_id = json.dumps(request)
@@ -208,12 +208,15 @@ class G3WebSocketClientProtocol(
     async def require_get(
         self, path: UriPath, params: Optional[JsonDict] = None
     ) -> JsonDict:
+        """Sends a GET request and returns the response."""
         return await self.require(self.generate_get_request(path, params))
 
     async def require_post(self, path: UriPath, body: Optional[str] = None) -> JsonDict:
+        """Sends a POST request and returns the response."""
         return await self.require(self.generate_post_request(path, body))
 
     async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+        """Sends a subscription POST request and returns the body of the response."""
         response = await self.require_post(signal_uri_path)
         try:
             return response["body"]
@@ -223,6 +226,7 @@ class G3WebSocketClientProtocol(
     async def require_post_unsubscribe(
         self, signal_uri_path: UriPath, signal_id: SignalId
     ) -> bool:
+        """Sends an unsubscription POST request and returns a boolean indicating its success."""
         response = await self.require_post(signal_uri_path, signal_id)
         try:
             return response["body"]
@@ -233,6 +237,7 @@ class G3WebSocketClientProtocol(
     def generate_get_request(
         path: UriPath, params: Optional[JsonDict] = None
     ) -> JsonDict:
+        """Generates a GET request."""
         request: JsonDict = {"path": path, "method": "GET"}
         if params is not None:
             request["params"] = params
@@ -240,4 +245,5 @@ class G3WebSocketClientProtocol(
 
     @staticmethod
     def generate_post_request(path: UriPath, body: Optional[str] = None) -> JsonDict:
+        """Generates a POST request."""
         return {"path": path, "method": "POST", "body": body}
