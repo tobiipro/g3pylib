@@ -20,6 +20,7 @@ class Glasses3:
     ) -> None:
         self.logger = logging.getLogger(__name__) if logger is None else logger
         self._connection: G3WebSocketClientProtocol = connection
+        self._recorder: Optional[Recorder] = None
 
     @property
     def recorder(self):
