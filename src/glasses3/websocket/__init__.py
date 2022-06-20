@@ -13,7 +13,7 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
-from .g3typing import (
+from ..g3typing import (
     Hostname,
     JSONDict,
     JSONObject,
@@ -23,6 +23,7 @@ from .g3typing import (
     SubscriptionId,
     UriPath,
 )
+from .exceptions import InvalidResponseError, UnsubscribeError
 
 DEFAULT_WEBSOCKET_PATH = UriPath("/websocket")
 
@@ -46,14 +47,6 @@ def connect(
         create_protocol=G3WebSocketClientProtocol.factory,
         subprotocols=G3WebSocketClientProtocol.DEFAULT_SUBPROTOCOLS,
     )
-
-
-class UnsubscribeError(Exception):
-    """Raised when unsubscribing to a signal is unsuccessful."""
-
-
-class InvalidResponseError(Exception):
-    """Raised when the server responds with an invalid message."""
 
 
 class SignalSubscriptionHandler(ABC):
