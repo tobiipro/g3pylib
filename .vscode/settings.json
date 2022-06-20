@@ -11,6 +11,7 @@
         "PYTHONDEVMODE",
         "subprotocol",
         "subprotocols",
+        "unsubscription",
         "websockets"
     ],
     "cSpell.language": "en,sv-SE",
