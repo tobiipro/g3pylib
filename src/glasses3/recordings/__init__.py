@@ -2,26 +2,30 @@ import asyncio
 import logging
 from typing import Awaitable, List, Tuple, Union, cast
 
-from glasses3.g3typing import JSONDict, SignalBody, UriPath
+from glasses3 import APIComponent, EndpointKind
+from glasses3.g3typing import URI, JSONDict, SignalBody
 from glasses3.websocket import G3WebSocketClientProtocol
 
 
-class Recordings:
-    def __init__(self, connection: G3WebSocketClientProtocol) -> None:
+class Recordings(APIComponent):
+    def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
         self._connection = connection
+        self._api_uri = api_uri
         self._children = []
         self._handle_child_added_task = None
         self._handle_child_removed_task = None
         self.logger = logging.getLogger(__name__)
 
     async def get_string(self):
-        return await self._connection.require_get(UriPath("/recordings.name"))
+        return await self._connection.require_get(
+            self.generate_endpoint_uri(EndpointKind.PROPERTY, "name")
+        )
 
     async def delete(self, uuid: str) -> bool:
         return cast(
             bool,
             await self._connection.require_post(
-                UriPath("/recordings!delete"), body=uuid
+                self.generate_endpoint_uri(EndpointKind.ACTION, "delete"), body=uuid
             ),
         )
 
@@ -29,41 +33,39 @@ class Recordings:
         self,
     ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
         return await self._connection.subscribe_to_signal(
-            UriPath("/recordings:child-added")
+            self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-added")
         )
 
     async def subscribe_to_child_removed(
         self,
     ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
         return await self._connection.subscribe_to_signal(
-            UriPath("/recordings:child-removed")
+            self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-removed")
         )
 
     async def subscribe_to_deleted(
         self,
     ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
         return await self._connection.subscribe_to_signal(
-            UriPath("/recordings:deleted")
+            self.generate_endpoint_uri(EndpointKind.SIGNAL, "deleted")
         )
 
     async def subscribe_to_scan_done(
         self,
     ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
         return await self._connection.subscribe_to_signal(
-            UriPath("/recordings:scan-done")
+            self.generate_endpoint_uri(EndpointKind.SIGNAL, "scan-done")
         )
 
     async def subscribe_to_scan_start(
         self,
     ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
         return await self._connection.subscribe_to_signal(
-            UriPath("/recordings:scan-start")
+            self.generate_endpoint_uri(EndpointKind.SIGNAL, "scan-start")
         )
 
     async def _get_children(self) -> List[str]:
-        body = cast(
-            JSONDict, await self._connection.require_get(UriPath("/recordings"))
-        )
+        body = cast(JSONDict, await self._connection.require_get(self._api_uri))
         return cast(List[str], body["children"])
 
     async def start_children_handler_tasks(self):
@@ -76,13 +78,13 @@ class Recordings:
                 added_children_queue,
                 self._unsubscribe_to_child_added,
             ) = await self._connection.subscribe_to_signal(
-                UriPath("/recordings:child-added")
+                self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-added")
             )
             (
                 removed_children_queue,
                 self._unsubscribe_to_child_removed,
             ) = await self._connection.subscribe_to_signal(
-                UriPath("/recordings:child-removed")
+                self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-removed")
             )
             self._handle_child_added_task = asyncio.create_task(
                 self._handle_child_added(added_children_queue)

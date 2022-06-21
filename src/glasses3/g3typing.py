@@ -7,7 +7,7 @@ else:
     LoggerLike = Union[Logger, LoggerAdapter]
 Hostname = NewType("Hostname", str)
 MessageId = NewType("MessageId", int)
-UriPath = NewType("UriPath", str)
+URI = NewType("URI", str)
 JSONObject = Union[int, str, bool, Dict[str, "JSONObject"], List["JSONObject"], None]
 JSONDict = Dict[str, JSONObject]
 SignalType = NewType("SignalType", str)

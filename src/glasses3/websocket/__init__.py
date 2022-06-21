@@ -14,6 +14,7 @@ from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
 from ..g3typing import (
+    URI,
     Hostname,
     JSONDict,
     JSONObject,
@@ -21,27 +22,26 @@ from ..g3typing import (
     SignalBody,
     SignalId,
     SubscriptionId,
-    UriPath,
 )
 from .exceptions import InvalidResponseError, UnsubscribeError
 
-DEFAULT_WEBSOCKET_PATH = UriPath("/websocket")
+DEFAULT_WEBSOCKET_URI = URI("/websocket")
 
 
 def connect(
-    g3_hostname: Hostname, websocket_path: UriPath = DEFAULT_WEBSOCKET_PATH
+    g3_hostname: Hostname, websocket_uri: URI = DEFAULT_WEBSOCKET_URI
 ) -> websockets.legacy.client.Connect:
     """Sets up a websocket connection with a Glasses3 device.
 
     Uses WebSocketClientProtocol from websockets to create a connection with the supplied hostname
-    and websocket path.
+    and websocket uri.
 
     Takes the hostname (which by default is the serial number of the recording unit) and websocket
-    connection path as input.
+    connection uri as input.
 
     Returns a Connect object that communicates with Glasses3.
     """
-    ws_uri = "ws://{}{}".format(g3_hostname, websocket_path)
+    ws_uri = f"ws://{g3_hostname}{websocket_uri}"
     return websockets_connect(
         ws_uri,
         create_protocol=G3WebSocketClientProtocol.factory,
@@ -60,25 +60,25 @@ class SignalSubscriptionHandler(ABC):
         """Initialize a subclass inheriting `SignalSubscriptionHandler` with the properties needed
         to handle signal subscriptions. **Has to be run in the constructor of the inheriting subclass.**"""
         self._subscription_count = 0
-        self._signal_id_by_path: Dict[UriPath, SignalId] = {}
+        self._signal_id_by_uri: Dict[URI, SignalId] = {}
         self._signal_queues_by_id: Dict[
             SignalId, Dict[SubscriptionId, asyncio.Queue[SignalBody]]
         ] = defaultdict(dict)
 
     async def subscribe_to_signal(
-        self, signal_uri_path: UriPath
+        self, signal_uri: URI
     ) -> Tuple[asyncio.Queue[SignalBody], Awaitable[None]]:
-        """Sets up a subscription to the signal with the specified `signal_uri_path`.
+        """Sets up a subscription to the signal with the specified `signal_uri`.
 
         Returns a tuple with a queue and an awaitable. Upon receiving signals messages, the message
         body is added to the queue. The awaitable can be awaited to unsubscribe to the signal.
         """
         self._subscription_count += 1
-        signal_id = self._signal_id_by_path.get(signal_uri_path)
+        signal_id = self._signal_id_by_uri.get(signal_uri)
         if signal_id is None:
-            signal_id = self._signal_id_by_path[
-                signal_uri_path
-            ] = await self._require_post_subscribe(signal_uri_path)
+            signal_id = self._signal_id_by_uri[
+                signal_uri
+            ] = await self._require_post_subscribe(signal_uri)
 
         signal_queue: asyncio.Queue[SignalBody] = asyncio.Queue()
         self._signal_queues_by_id[signal_id][
@@ -87,7 +87,7 @@ class SignalSubscriptionHandler(ABC):
         return (
             signal_queue,
             self._unsubscribe_to_signal(
-                signal_uri_path,
+                signal_uri,
                 signal_id,
                 SubscriptionId(self._subscription_count),
             ),
@@ -95,7 +95,7 @@ class SignalSubscriptionHandler(ABC):
 
     async def _unsubscribe_to_signal(
         self,
-        signal_uri_path: UriPath,
+        signal_uri: URI,
         signal_id: SignalId,
         subscription_id: SubscriptionId,
     ) -> None:
@@ -103,9 +103,9 @@ class SignalSubscriptionHandler(ABC):
         signal_queues = self._signal_queues_by_id[signal_id]
         del signal_queues[subscription_id]
         if len(signal_queues) == 0:
-            if not await self._require_post_unsubscribe(signal_uri_path, signal_id):
+            if not await self._require_post_unsubscribe(signal_uri, signal_id):
                 raise UnsubscribeError
-            del self._signal_id_by_path[signal_uri_path]
+            del self._signal_id_by_uri[signal_uri]
 
     def receive_signal(self, signal_id: SignalId, signal_body: SignalBody):
         """Passes on received signal message body with the specified `signal_id` to all
@@ -115,14 +115,14 @@ class SignalSubscriptionHandler(ABC):
             signal_queue.put_nowait(SignalBody(signal_body.copy()))
 
     @abstractmethod
-    async def _require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+    async def _require_post_subscribe(self, signal_uri: URI) -> SignalId:
         """Should send a signal subscription post request over the inheriting subclass protocol and
         retrieve a signal id."""
         raise NotImplementedError
 
     @abstractmethod
     async def _require_post_unsubscribe(
-        self, signal_uri_path: UriPath, signal_id: SignalId
+        self, signal_uri: URI, signal_id: SignalId
     ) -> bool:
         """Should send a signal unsubscription post request over the inheriting subclass protocol
         and return a boolean indicating its success."""
@@ -158,7 +158,7 @@ class G3WebSocketClientProtocol(
         For example, a connection can be established as follows:
         ```python
         async with websockets.client.connect(
-            "ws://{}/websockets".format(g3_hostname),
+            f"ws://{g3_hostname}/websockets",
             create_protocol=G3WebSocketClientProtocol.factory,
         ) as g3ws:
             g3ws = cast(G3WebSocketClientProtocol, g3ws)
@@ -203,40 +203,36 @@ class G3WebSocketClientProtocol(
         return await future
 
     async def require_get(
-        self, path: UriPath, params: Optional[JSONObject] = None
+        self, uri: URI, params: Optional[JSONObject] = None
     ) -> JSONObject:
         """Sends a GET request and returns the response."""
-        return await self.require(self.generate_get_request(path, params))
+        return await self.require(self.generate_get_request(uri, params))
 
     async def require_post(
-        self, path: UriPath, body: Optional[JSONObject] = None
+        self, uri: URI, body: Optional[JSONObject] = None
     ) -> JSONObject:
         """Sends a POST request and returns the response."""
-        return await self.require(self.generate_post_request(path, body))
+        return await self.require(self.generate_post_request(uri, body))
 
-    async def _require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+    async def _require_post_subscribe(self, signal_uri: URI) -> SignalId:
         """Sends a subscription POST request and returns the signal id specified in the response."""
-        return cast(SignalId, await self.require_post(signal_uri_path))
+        return cast(SignalId, await self.require_post(signal_uri))
 
     async def _require_post_unsubscribe(
-        self, signal_uri_path: UriPath, signal_id: SignalId
+        self, signal_uri: URI, signal_id: SignalId
     ) -> bool:
         """Sends an unsubscription POST request and returns a boolean indicating its success."""
-        return cast(bool, await self.require_post(signal_uri_path, signal_id))
+        return cast(bool, await self.require_post(signal_uri, signal_id))
 
     @staticmethod
-    def generate_get_request(
-        path: UriPath, params: Optional[JSONObject] = None
-    ) -> JSONDict:
+    def generate_get_request(uri: URI, params: Optional[JSONObject] = None) -> JSONDict:
         """Generates a GET request."""
-        request: JSONDict = {"path": path, "method": "GET"}
+        request: JSONDict = {"path": uri, "method": "GET"}
         if params is not None:
             request["params"] = params
         return request
 
     @staticmethod
-    def generate_post_request(
-        path: UriPath, body: Optional[JSONObject] = None
-    ) -> JSONDict:
+    def generate_post_request(uri: URI, body: Optional[JSONObject] = None) -> JSONDict:
         """Generates a POST request."""
-        return {"path": cast(str, path), "method": "POST", "body": body}
+        return {"path": cast(str, uri), "method": "POST", "body": body}

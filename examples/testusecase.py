@@ -7,13 +7,13 @@ from websockets.client import connect as websockets_connect
 
 import glasses3.websocket as g3_websocket
 from glasses3 import Glasses3
-from glasses3.g3typing import Hostname, JSONDict, UriPath
+from glasses3.g3typing import URI, Hostname, JSONDict
 
 logging.basicConfig(level=logging.DEBUG)
 
 g3_hostname = Hostname("tg02b-080105022801")  # tg03b-080200045321
 test_request: JSONDict = {"path": "/recorder", "method": "GET"}
-test_request_path = UriPath("/recorder")
+test_request_path = URI("/recorder")
 test_request_params = {"help": True}
 
 
@@ -29,7 +29,7 @@ async def use_case_1():
 
 async def use_case_2():
     async with websockets_connect(
-        "ws://{}/websockets".format(g3_hostname),
+        f"ws://{g3_hostname}/websockets",
         create_protocol=g3_websocket.G3WebSocketClientProtocol.factory,
     ) as g3ws:
         g3ws = cast(g3_websocket.G3WebSocketClientProtocol, g3ws)
@@ -66,12 +66,8 @@ async def use_case_signal():
     async with g3_websocket.connect(g3_hostname) as g3ws:
         g3ws = cast(g3_websocket.G3WebSocketClientProtocol, g3ws)
         g3ws.start_receiver_task()
-        queue1, unsubscribe1 = await g3ws.subscribe_to_signal(
-            UriPath("/recorder:started")
-        )
-        queue2, unsubscribe2 = await g3ws.subscribe_to_signal(
-            UriPath("/recorder:started")
-        )
+        queue1, unsubscribe1 = await g3ws.subscribe_to_signal(URI("/recorder:started"))
+        queue2, unsubscribe2 = await g3ws.subscribe_to_signal(URI("/recorder:started"))
         logging.info(await queue1.get())
         logging.info(await queue2.get())
         await unsubscribe1
