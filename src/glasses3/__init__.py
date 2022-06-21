@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional, cast
 
 import glasses3.websocket
+from glasses3.recordings import Recordings
 
 from .g3typing import Hostname, LoggerLike
 from .recorder import Recorder
@@ -21,12 +22,19 @@ class Glasses3:
         self.logger = logging.getLogger(__name__) if logger is None else logger
         self._connection: G3WebSocketClientProtocol = connection
         self._recorder: Optional[Recorder] = None
+        self._recordings: Optional[Recordings] = None
 
     @property
     def recorder(self):
         if self._recorder is None:
             self._recorder = Recorder(self._connection)
         return self._recorder
+
+    @property
+    def recordings(self):
+        if self._recordings is None:
+            self._recordings = Recordings(self._connection)
+        return self._recordings
 
     @classmethod
     @asynccontextmanager

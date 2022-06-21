@@ -78,8 +78,23 @@ async def use_case_signal():
         await unsubscribe2
 
 
+async def use_case_list_of_recordings():
+    async with Glasses3.connect(g3_hostname) as g3:
+        await g3.recordings.start_children_handler_tasks()
+        top_3_recordings = g3.recordings[:3]
+        for recording in top_3_recordings:
+            print(recording)
+        await g3.recorder.start()
+        await asyncio.sleep(3)
+        await g3.recorder.stop()
+        top_3_recordings = g3.recordings[:3]
+        for recording in top_3_recordings:
+            print(recording)
+        await g3.recordings.stop_children_handlers()
+
+
 async def handler():
-    await asyncio.gather(use_case_5())
+    await asyncio.gather(use_case_list_of_recordings())
 
 
 def main():
