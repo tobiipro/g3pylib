@@ -78,7 +78,7 @@ class SignalSubscriptionHandler(ABC):
         if signal_id is None:
             signal_id = self._signal_id_by_path[
                 signal_uri_path
-            ] = await self.require_post_subscribe(signal_uri_path)
+            ] = await self._require_post_subscribe(signal_uri_path)
 
         signal_queue: asyncio.Queue[SignalBody] = asyncio.Queue()
         self._signal_queues_by_id[signal_id][
@@ -103,7 +103,7 @@ class SignalSubscriptionHandler(ABC):
         signal_queues = self._signal_queues_by_id[signal_id]
         del signal_queues[subscription_id]
         if len(signal_queues) == 0:
-            if not await self.require_post_unsubscribe(signal_uri_path, signal_id):
+            if not await self._require_post_unsubscribe(signal_uri_path, signal_id):
                 raise UnsubscribeError
             del self._signal_id_by_path[signal_uri_path]
 
@@ -115,13 +115,13 @@ class SignalSubscriptionHandler(ABC):
             signal_queue.put_nowait(SignalBody(signal_body.copy()))
 
     @abstractmethod
-    async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+    async def _require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
         """Should send a signal subscription post request over the inheriting subclass protocol and
         retrieve a signal id."""
         raise NotImplementedError
 
     @abstractmethod
-    async def require_post_unsubscribe(
+    async def _require_post_unsubscribe(
         self, signal_uri_path: UriPath, signal_id: SignalId
     ) -> bool:
         """Should send a signal unsubscription post request over the inheriting subclass protocol
@@ -214,23 +214,15 @@ class G3WebSocketClientProtocol(
         """Sends a POST request and returns the response."""
         return await self.require(self.generate_post_request(path, body))
 
-    async def require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
-        """Sends a subscription POST request and returns the body of the response."""
-        response = cast(JSONDict, await self.require_post(signal_uri_path))
-        try:
-            return cast(SignalId, response["body"])
-        except (KeyError, json.JSONDecodeError):
-            raise InvalidResponseError
+    async def _require_post_subscribe(self, signal_uri_path: UriPath) -> SignalId:
+        """Sends a subscription POST request and returns the signal id specified in the response."""
+        return cast(SignalId, await self.require_post(signal_uri_path))
 
-    async def require_post_unsubscribe(
+    async def _require_post_unsubscribe(
         self, signal_uri_path: UriPath, signal_id: SignalId
     ) -> bool:
         """Sends an unsubscription POST request and returns a boolean indicating its success."""
-        response = cast(JSONDict, await self.require_post(signal_uri_path, signal_id))
-        try:
-            return cast(bool, response["body"])
-        except (KeyError, json.JSONDecodeError):
-            raise InvalidResponseError
+        return cast(bool, await self.require_post(signal_uri_path, signal_id))
 
     @staticmethod
     def generate_get_request(
