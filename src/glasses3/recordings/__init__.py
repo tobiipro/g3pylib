@@ -1,8 +1,9 @@
 import asyncio
 import logging
-from typing import Awaitable, List, Tuple, Union, cast
+from typing import Awaitable, Dict, Iterable, List, Tuple, Union, cast
 
-from glasses3.g3typing import URI, JSONDict, SignalBody
+from glasses3.g3typing import URI, SignalBody
+from glasses3.recordings.recording import Recording
 from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
@@ -10,11 +11,11 @@ from glasses3.websocket import G3WebSocketClientProtocol
 class Recordings(APIComponent):
     def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
         self._connection = connection
-        self._api_uri = api_uri
-        self._children = []
+        self._children = {}
         self._handle_child_added_task = None
         self._handle_child_removed_task = None
         self.logger = logging.getLogger(__name__)
+        super().__init__(api_uri)
 
     async def get_string(self):
         return await self._connection.require_get(
@@ -25,7 +26,7 @@ class Recordings(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "delete"), body=uuid
+                self.generate_endpoint_uri(EndpointKind.ACTION, "delete"), body=[uuid]
             ),
         )
 
@@ -64,9 +65,16 @@ class Recordings(APIComponent):
             self.generate_endpoint_uri(EndpointKind.SIGNAL, "scan-start")
         )
 
-    async def _get_children(self) -> List[str]:
-        body = cast(JSONDict, await self._connection.require_get(self._api_uri))
-        return cast(List[str], body["children"])
+    async def _get_children(self) -> Dict[str, Recording]:
+        children = cast(
+            Dict[str, List[str]], await self._connection.require_get(self._api_uri)
+        )["children"]
+        return dict(
+            map(
+                lambda uuid: (uuid, Recording(self._connection, self._api_uri, uuid)),
+                children,
+            )
+        )
 
     async def start_children_handler_tasks(self):
         if (
@@ -115,26 +123,30 @@ class Recordings(APIComponent):
         self, added_children_queue: asyncio.Queue[SignalBody]
     ) -> None:
         while True:
-            child = cast(List[str], await added_children_queue.get())
-            self._children.insert(0, child[0])
+            child_uuid = cast(List[str], await added_children_queue.get())[0]
+            self._children[child_uuid] = Recording(
+                self._connection, self._api_uri, child_uuid
+            )
 
     async def _handle_child_removed(
         self, removed_children_queue: asyncio.Queue[SignalBody]
     ) -> None:
         while True:
-            child = cast(List[str], await removed_children_queue.get())
-            self._children.remove(child[0])
+            child_uuid = cast(List[str], await removed_children_queue.get())[0]
+            del self._children[child_uuid]
 
     @property
-    def children(self) -> List[str]:
+    def children(self) -> List[Recording]:
         """This property is not recommended for use since the object itself has functionality of a list. See `__iter__` and `__getitem__` methods."""
-        return self._children
+        return list(self._children.values())[::-1]
 
-    def __iter__(self):
-        yield from self._children
+    def __iter__(self) -> Iterable[Recording]:
+        yield from reversed(self._children.values())
 
     def __len__(self):
         return len(self._children)
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[str, List[str]]:
-        return self._children[key]
+    def __getitem__(self, key: Union[int, slice]) -> Union[Recording, List[Recording]]:
+        children_list = list(self._children.values())
+        children_list.reverse()
+        return children_list[key]

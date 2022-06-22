@@ -1,13 +1,14 @@
 import asyncio
 import json
 import logging
-from typing import cast
+from typing import List, cast
 
 from websockets.client import connect as websockets_connect
 
 import glasses3.websocket as g3_websocket
 from glasses3 import Glasses3
 from glasses3.g3typing import URI, Hostname, JSONDict
+from glasses3.recordings.recording import Recording
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -77,15 +78,22 @@ async def use_case_signal():
 async def use_case_list_of_recordings():
     async with Glasses3.connect(g3_hostname) as g3:
         await g3.recordings.start_children_handler_tasks()
-        top_3_recordings = g3.recordings[:3]
-        for recording in top_3_recordings:
-            print(recording)
+        print("Initial last 3 recordings: ")
+        for recording in cast(List[Recording], g3.recordings[:3]):
+            print(recording.uuid)
         await g3.recorder.start()
         await asyncio.sleep(3)
         await g3.recorder.stop()
-        top_3_recordings = g3.recordings[:3]
-        for recording in top_3_recordings:
-            print(recording)
+        print("Last 3 after making a recording: ")
+        for recording in cast(List[Recording], g3.recordings[:3]):
+            print(recording.uuid)
+        await g3.recordings.delete(cast(Recording, g3.recordings[0]).uuid)
+        print("Last 3 after removing the most recent recording: ")
+        for recording in cast(List[Recording], g3.recordings[:3]):
+            print(recording.uuid)
+        print("Last 3 accessed via children property: ")
+        for child in g3.recordings.children[:3]:
+            print(child.uuid)
         await g3.recordings.stop_children_handlers()
 
 
