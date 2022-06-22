@@ -12,7 +12,7 @@ from glasses3.recordings.recording import Recording
 
 logging.basicConfig(level=logging.DEBUG)
 
-g3_hostname = Hostname("tg02b-080105022801")  # tg03b-080200045321
+g3_hostname = Hostname("tg03b-080200045321")  # tg03b-080200045321
 test_request: JSONDict = {"path": "/recorder", "method": "GET"}
 test_request_path = URI("/recorder")
 test_request_params = {"help": True}
@@ -97,8 +97,32 @@ async def use_case_list_of_recordings():
         await g3.recordings.stop_children_handlers()
 
 
+async def use_case_rudimentary_streams():
+    async with Glasses3.connect(g3_hostname) as g3:
+        queue, unsubscribe = await g3.rudimentary.subscribe_to_gaze()
+
+        async def task():
+            count = 0
+            while True:
+                count += 1
+                print(count, await queue.get())
+                await asyncio.sleep(0.02)
+                queue.task_done()
+
+        g3.rudimentary.start_streams()
+        logging.debug("Streams started")
+        await asyncio.sleep(1)
+        t = asyncio.create_task(task())
+        await asyncio.sleep(14)
+        g3.rudimentary.stop_streams()
+        logging.debug("Streams stopped")
+        await queue.join()
+        t.cancel()
+        await unsubscribe
+
+
 async def handler():
-    await asyncio.gather(use_case_list_of_recordings())
+    await asyncio.gather(use_case_rudimentary_streams())
 
 
 def main():
