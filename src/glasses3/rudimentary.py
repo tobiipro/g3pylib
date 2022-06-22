@@ -1,5 +1,9 @@
-from glasses3 import APIComponent, EndpointKind, G3WebSocketClientProtocol
-from glasses3.g3typing import URI, JSONObject
+import asyncio
+from typing import Awaitable, Tuple, cast
+
+from glasses3.g3typing import URI, JSONObject, SignalBody
+from glasses3.utils import APIComponent, EndpointKind
+from glasses3.websocket import G3WebSocketClientProtocol
 
 
 class Rudimentary(APIComponent):

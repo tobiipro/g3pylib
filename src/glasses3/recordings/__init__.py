@@ -2,8 +2,8 @@ import asyncio
 import logging
 from typing import Awaitable, List, Tuple, Union, cast
 
-from glasses3 import APIComponent, EndpointKind
 from glasses3.g3typing import URI, JSONDict, SignalBody
+from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 

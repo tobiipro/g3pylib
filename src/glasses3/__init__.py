@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from enum import Enum, auto
 from typing import AsyncIterator, Optional, cast
 
 import glasses3.websocket
+from glasses3.g3typing import URI, Hostname, LoggerLike
+from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
-
-from .g3typing import URI, Hostname, LoggerLike
-from .recorder import Recorder
-from .rudimentary import Rudimentary
-from .websocket import G3WebSocketClientProtocol
+from glasses3.rudimentary import Rudimentary
+from glasses3.utils import APIComponent
+from glasses3.websocket import G3WebSocketClientProtocol
 
 
-class Glasses3:
+class Glasses3(APIComponent):
     def __init__(
         # Type ignored in this file since LoggerAdapter does not support generic typing
         self,
@@ -52,29 +51,3 @@ class Glasses3:
             g3 = cast(G3WebSocketClientProtocol, g3)
             g3.start_receiver_task()
             yield cls(g3)
-
-
-class APIComponent:
-    def __init__(self, api_uri: URI):
-        self._api_uri = api_uri
-
-    def generate_endpoint_uri(
-        self, endpoint_kind: EndpointKind, endpoint_name: str
-    ) -> URI:
-        return URI(f"{self._api_uri}{endpoint_kind.uri_delimiter}{endpoint_name}")
-
-
-class EndpointKind(Enum):
-    PROPERTY = auto()
-    ACTION = auto()
-    SIGNAL = auto()
-
-    @property
-    def uri_delimiter(self):
-        match self:
-            case EndpointKind.PROPERTY:
-                return "."
-            case EndpointKind.ACTION:
-                return "!"
-            case EndpointKind.SIGNAL:
-                return ":"
