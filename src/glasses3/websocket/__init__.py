@@ -192,7 +192,7 @@ class G3WebSocketClientProtocol(
                     raise InvalidResponseError
 
     async def require(self, request: JSONDict) -> JSONObject:
-        """Sends a request  with a unique id and returns the response."""
+        """Sends a request  with a unique id and returns the body of the response with the same id."""
         self._message_count += 1
         request["id"] = self._message_count
         string_request_with_id = json.dumps(request)
@@ -205,13 +205,13 @@ class G3WebSocketClientProtocol(
     async def require_get(
         self, uri: URI, params: Optional[JSONObject] = None
     ) -> JSONObject:
-        """Sends a GET request and returns the response."""
+        """Sends a GET request and returns the body of the response."""
         return await self.require(self.generate_get_request(uri, params))
 
     async def require_post(
         self, uri: URI, body: Optional[JSONObject] = None
     ) -> JSONObject:
-        """Sends a POST request and returns the response."""
+        """Sends a POST request and returns the body of the response."""
         return await self.require(self.generate_post_request(uri, body))
 
     async def _require_post_subscribe(self, signal_uri: URI) -> SignalId:
