@@ -8,6 +8,7 @@
         "asyncio",
         "Docstrings",
         "isort",
+        "keepalive",
         "pyright",
         "PYTHONDEVMODE",
         "subprotocol",
