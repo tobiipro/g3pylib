@@ -1,5 +1,8 @@
+from datetime import datetime
+from typing import List, cast
+
 from glasses3.g3typing import URI
-from glasses3.utils import APIComponent
+from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 
@@ -14,3 +17,135 @@ class Recording(APIComponent):
     @property
     def uuid(self):
         return self._uuid
+
+    async def get_created(self) -> datetime:
+        created = cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "created")
+            ),
+        )
+        return datetime.fromisoformat(created.strip("Z"))
+
+    async def get_duration(self) -> float:
+        return cast(
+            float,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "duration")
+            ),
+        )
+
+    async def get_folder(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "folder")
+            ),
+        )
+
+    async def get_gaze_overlay(self) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-overlay")
+            ),
+        )
+
+    async def get_gaze_samples(self) -> int:
+        return cast(
+            int,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-samples")
+            ),
+        )
+
+    async def get_http_path(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "http-path")
+            ),
+        )
+
+    async def get_name(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "name")
+            ),
+        )
+
+    async def get_rtsp_path(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "rtsp-path")
+            ),
+        )
+
+    async def get_timezone(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "timezone")
+            ),
+        )
+
+    async def get_valid_gaze_samples(self) -> int:
+        return cast(
+            int,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "valid-gaze-samples")
+            ),
+        )
+
+    async def get_visible_name(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name")
+            ),
+        )
+
+    async def set_visible_name(self, value: str) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name"),
+                body=value,
+            ),
+        )
+
+    async def meta_insert(self, key: str, meta: str) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.ACTION, "meta-insert"),
+                body=[key, meta],
+            ),
+        )
+
+    async def meta_keys(self) -> List[str]:
+        return cast(
+            List[str],
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.ACTION, "meta-keys")
+            ),
+        )
+
+    async def meta_lookup(self, key: str) -> str:
+        return cast(
+            str,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.ACTION, "meta-lookup"),
+                body=[key],
+            ),
+        )
+
+    async def move(self, folder: str) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.ACTION, "move"), body=[folder]
+            ),
+        )

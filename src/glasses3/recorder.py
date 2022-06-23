@@ -31,7 +31,13 @@ class Recorder(APIComponent):
             self.generate_endpoint_uri(EndpointKind.PROPERTY, "folder")
         )
 
-    # async def set_folder(self):
+    async def set_folder(self, value: str) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "folder"), body=value
+            ),
+        )
 
     async def get_gaze_overlay(self) -> JSONObject:
         return await self._connection.require_get(
@@ -71,6 +77,15 @@ class Recorder(APIComponent):
     async def get_visible_name(self) -> JSONObject:
         return await self._connection.require_get(
             self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name")
+        )
+
+    async def set_visible_name(self, value: str) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name"),
+                body=value,
+            ),
         )
 
     async def cancel(self):

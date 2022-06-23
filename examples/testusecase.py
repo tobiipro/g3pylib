@@ -94,7 +94,7 @@ async def use_case_list_of_recordings():
         print("Last 3 accessed via children property: ")
         for child in g3.recordings.children[:3]:
             print(child.uuid)
-        await g3.recordings.stop_children_handlers()
+        await g3.recordings.stop_children_handler_tasks()
 
 
 async def use_case_rudimentary_streams():
