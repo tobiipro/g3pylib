@@ -179,26 +179,27 @@ class G3WebSocketClientProtocol(
 
     def start_receiver_task(self) -> None:
         """Creates a task handling all incoming messages."""
-        self.g3_logger.debug("Receiver task starting")
-        self._receiver = asyncio.create_task(self._receiver_task(), name="g3_receiver")
 
-    async def _receiver_task(self) -> None:
-        """Listens for and handles/delegates incoming messages."""
-        async for message in self:
-            json_message: JSONObject = json.loads(message)
-            self.g3_logger.info(f"Received {json_message}")
-            match json_message:
-                case {"id": message_id, "body": message_body}:
-                    del json_message["id"]
-                    self._future_messages[cast(MessageId, message_id)].set_result(
-                        message_body
-                    )
-                case {"signal": signal_id, "body": signal_body}:
-                    self.receive_signal(
-                        cast(SignalId, signal_id), cast(SignalBody, signal_body)
-                    )
-                case _:
-                    raise InvalidResponseError
+        async def receiver_task() -> None:
+            """Listens for and handles/delegates incoming messages."""
+            async for message in self:
+                json_message: JSONObject = json.loads(message)
+                self.g3_logger.info(f"Received {json_message}")
+                match json_message:
+                    case {"id": message_id, "body": message_body}:
+                        del json_message["id"]
+                        self._future_messages[cast(MessageId, message_id)].set_result(
+                            message_body
+                        )
+                    case {"signal": signal_id, "body": signal_body}:
+                        self.receive_signal(
+                            cast(SignalId, signal_id), cast(SignalBody, signal_body)
+                        )
+                    case _:
+                        raise InvalidResponseError
+
+        self.g3_logger.debug("Receiver task starting")
+        self._receiver_task = asyncio.create_task(receiver_task(), name="g3_receiver")
 
     async def require(self, request: JSONDict) -> JSONObject:
         """Sends a request  with a unique id and returns the body of the response with the same id."""

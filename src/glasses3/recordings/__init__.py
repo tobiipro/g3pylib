@@ -77,6 +77,22 @@ class Recordings(APIComponent):
         )
 
     async def start_children_handler_tasks(self):
+        async def handle_child_added_task(
+            added_children_queue: asyncio.Queue[SignalBody],
+        ) -> None:
+            while True:
+                child_uuid = cast(List[str], await added_children_queue.get())[0]
+                self._children[child_uuid] = Recording(
+                    self._connection, self._api_uri, child_uuid
+                )
+
+        async def handle_child_removed_task(
+            removed_children_queue: asyncio.Queue[SignalBody],
+        ) -> None:
+            while True:
+                child_uuid = cast(List[str], await removed_children_queue.get())[0]
+                del self._children[child_uuid]
+
         if (
             self._handle_child_added_task is None
             and self._handle_child_removed_task is None
@@ -95,10 +111,10 @@ class Recordings(APIComponent):
                 self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-removed")
             )
             self._handle_child_added_task = asyncio.create_task(
-                self._handle_child_added(added_children_queue)
+                handle_child_added_task(added_children_queue)
             )
             self._handle_child_removed_task = asyncio.create_task(
-                self._handle_child_removed(removed_children_queue)
+                handle_child_removed_task(removed_children_queue)
             )
         else:
             self.logger.warn(
@@ -118,22 +134,6 @@ class Recordings(APIComponent):
             self.logger.warn(
                 "Attempted stopping children handlers before starting them."
             )  # TODO: other type of warning?
-
-    async def _handle_child_added(
-        self, added_children_queue: asyncio.Queue[SignalBody]
-    ) -> None:
-        while True:
-            child_uuid = cast(List[str], await added_children_queue.get())[0]
-            self._children[child_uuid] = Recording(
-                self._connection, self._api_uri, child_uuid
-            )
-
-    async def _handle_child_removed(
-        self, removed_children_queue: asyncio.Queue[SignalBody]
-    ) -> None:
-        while True:
-            child_uuid = cast(List[str], await removed_children_queue.get())[0]
-            del self._children[child_uuid]
 
     @property
     def children(self) -> List[Recording]:
