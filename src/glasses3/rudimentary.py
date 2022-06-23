@@ -83,7 +83,7 @@ class Rudimentary(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "calibrate"), body=[]
+                self.generate_endpoint_uri(EndpointKind.ACTION, "calibrate")
             ),
         )
 
@@ -91,7 +91,7 @@ class Rudimentary(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "keepalive"), body=[]
+                self.generate_endpoint_uri(EndpointKind.ACTION, "keepalive")
             ),
         )
 

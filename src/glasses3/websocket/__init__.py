@@ -13,7 +13,7 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
-from ..g3typing import (
+from glasses3.g3typing import (
     URI,
     Hostname,
     JSONDict,
@@ -23,7 +23,11 @@ from ..g3typing import (
     SignalId,
     SubscriptionId,
 )
-from .exceptions import InvalidResponseError, UnsubscribeError
+from glasses3.websocket.exceptions import (
+    InvalidResponseError,
+    SubscribeError,
+    UnsubscribeError,
+)
 
 DEFAULT_WEBSOCKET_URI = URI("/websocket")
 
@@ -79,7 +83,10 @@ class SignalSubscriptionHandler(ABC):
             signal_id = self._signal_id_by_uri[
                 signal_uri
             ] = await self._require_post_subscribe(signal_uri)
-
+        if not signal_id:
+            SubscribeError(
+                f"The subscription of {signal_uri} was unsuccessful. The glasses returned false."
+            )
         signal_queue: asyncio.Queue[SignalBody] = asyncio.Queue()
         self._signal_queues_by_id[signal_id][
             SubscriptionId(self._subscription_count)
@@ -104,7 +111,9 @@ class SignalSubscriptionHandler(ABC):
         del signal_queues[subscription_id]
         if len(signal_queues) == 0:
             if not await self._require_post_unsubscribe(signal_uri, signal_id):
-                raise UnsubscribeError
+                raise UnsubscribeError(
+                    f"The unsubscription of {signal_uri} was unsuccessful. The glasses returned false."
+                )
             del self._signal_id_by_uri[signal_uri]
 
     def receive_signal(self, signal_id: SignalId, signal_body: SignalBody):
@@ -209,20 +218,26 @@ class G3WebSocketClientProtocol(
         return await self.require(self.generate_get_request(uri, params))
 
     async def require_post(
-        self, uri: URI, body: Optional[JSONObject] = None
+        self,
+        uri: URI,
+        body: Optional[
+            JSONObject
+        ] = [],  # Note that this default list is passed by reference and should never be edited
     ) -> JSONObject:
-        """Sends a POST request and returns the body of the response."""
+        """Sends a POST request and returns the body of the response.
+
+        The default body is an empty list"""
         return await self.require(self.generate_post_request(uri, body))
 
     async def _require_post_subscribe(self, signal_uri: URI) -> SignalId:
         """Sends a subscription POST request and returns the signal id specified in the response."""
-        return cast(SignalId, await self.require_post(signal_uri))
+        return cast(SignalId, await self.require_post(signal_uri, body=None))
 
     async def _require_post_unsubscribe(
         self, signal_uri: URI, signal_id: SignalId
     ) -> bool:
         """Sends an unsubscription POST request and returns a boolean indicating its success."""
-        return cast(bool, await self.require_post(signal_uri, signal_id))
+        return cast(bool, await self.require_post(signal_uri, body=signal_id))
 
     @staticmethod
     def generate_get_request(uri: URI, params: Optional[JSONObject] = None) -> JSONDict:

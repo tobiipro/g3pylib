@@ -75,7 +75,7 @@ class Recorder(APIComponent):
 
     async def cancel(self):
         await self._connection.require_post(
-            self.generate_endpoint_uri(EndpointKind.ACTION, "cancel"), body=[]
+            self.generate_endpoint_uri(EndpointKind.ACTION, "cancel")
         )
 
     async def meta_insert(self, key: str, meta: str) -> bool:
@@ -91,7 +91,7 @@ class Recorder(APIComponent):
         return cast(
             List[str],
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "meta-keys"), body=[]
+                self.generate_endpoint_uri(EndpointKind.ACTION, "meta-keys")
             ),
         )
 
@@ -117,7 +117,7 @@ class Recorder(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "snapshot"), body=[]
+                self.generate_endpoint_uri(EndpointKind.ACTION, "snapshot")
             ),
         )
 
@@ -125,7 +125,7 @@ class Recorder(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "start"), body=[]
+                self.generate_endpoint_uri(EndpointKind.ACTION, "start")
             ),
         )
 
@@ -133,7 +133,7 @@ class Recorder(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.ACTION, "stop"), body=[]
+                self.generate_endpoint_uri(EndpointKind.ACTION, "stop")
             ),
         )
 
