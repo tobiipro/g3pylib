@@ -72,7 +72,7 @@ class Recordings(APIComponent):
         return dict(
             map(
                 lambda uuid: (uuid, Recording(self._connection, self._api_uri, uuid)),
-                children,
+                reversed(children),
             )
         )
 
@@ -98,6 +98,7 @@ class Recordings(APIComponent):
             and self._handle_child_removed_task is None
         ):
             self._children = await self._get_children()
+            print(self._children.keys())
             (
                 added_children_queue,
                 self._unsubscribe_to_child_added,
@@ -121,7 +122,7 @@ class Recordings(APIComponent):
                 "Attempted starting children handlers when already started."
             )  # TODO: other type of warning?
 
-    async def stop_children_handlers(self):
+    async def stop_children_handler_tasks(self):
         if (
             self._handle_child_added_task is not None
             and self._handle_child_removed_task is not None
@@ -147,6 +148,5 @@ class Recordings(APIComponent):
         return len(self._children)
 
     def __getitem__(self, key: Union[int, slice]) -> Union[Recording, List[Recording]]:
-        children_list = list(self._children.values())
-        children_list.reverse()
-        return children_list[key]
+        children_list_reversed = list(reversed(self._children.values()))
+        return children_list_reversed[key]
