@@ -10,3 +10,6 @@ strict = ["src", "examples"]
 [tool.isort]
 profile = "black"
 src_paths = ["src", "examples"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
