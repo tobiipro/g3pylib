@@ -1,4 +1,5 @@
 import asyncio
+from typing import AsyncIterable
 
 import pytest_asyncio
 
@@ -9,9 +10,11 @@ g3_hostname = Hostname("tg02b-080105022801")
 
 
 @pytest_asyncio.fixture(scope="module")
-async def g3():
+async def g3() -> AsyncIterable[Glasses3]:
     async with Glasses3.connect(g3_hostname) as g3:
+        await g3.recordings.start_children_handler_tasks()
         yield g3
+        await g3.recordings.stop_children_handler_tasks()
 
 
 @pytest_asyncio.fixture(scope="module")
