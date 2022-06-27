@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime
+from types import NoneType
 from typing import Awaitable, List, Optional, Tuple, cast
 
 from glasses3.g3typing import URI, JSONObject, SignalBody
@@ -11,10 +13,13 @@ class Recorder(APIComponent):
         self._connection = connection
         super().__init__(api_uri)
 
-    async def get_created(self) -> JSONObject:
-        return await self._connection.require_get(
-            URI(self.generate_endpoint_uri(EndpointKind.PROPERTY, "created"))
+    async def get_created(self) -> Optional[datetime]:
+        response = await self._connection.require_get(
+            self.generate_endpoint_uri(EndpointKind.PROPERTY, "created")
         )
+        if type(response) is NoneType:
+            return None
+        return datetime.fromisoformat(cast(str, response).strip("Z"))
 
     async def get_current_gaze_frequency(self) -> JSONObject:
         return await self._connection.require_get(
@@ -93,7 +98,7 @@ class Recorder(APIComponent):
             self.generate_endpoint_uri(EndpointKind.ACTION, "cancel")
         )
 
-    async def meta_insert(self, key: str, meta: str) -> bool:
+    async def meta_insert(self, key: str, meta: Optional[str]) -> bool:
         return cast(
             bool,
             await self._connection.require_post(
