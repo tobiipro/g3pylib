@@ -11,6 +11,7 @@
         "keepalive",
         "pyright",
         "PYTHONDEVMODE",
+        "rtsp",
         "subprotocol",
         "subprotocols",
         "unsubscription",
