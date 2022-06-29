@@ -1,8 +1,10 @@
 import asyncio
 import json
 import logging
+import os
 from typing import List, cast
 
+import dotenv
 from websockets.client import connect as websockets_connect
 
 import glasses3.websocket as g3_websocket
@@ -12,7 +14,8 @@ from glasses3.recordings.recording import Recording
 
 logging.basicConfig(level=logging.DEBUG)
 
-g3_hostname = Hostname("tg03b-080200045321")  # tg03b-080200045321
+dotenv.load_dotenv()  # type: ignore
+g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
 test_request: JSONDict = {"path": "/recorder", "method": "GET"}
 test_request_path = URI("/recorder")
 test_request_params = {"help": True}

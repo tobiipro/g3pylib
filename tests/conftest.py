@@ -1,4 +1,5 @@
 import asyncio
+import os
 from typing import AsyncIterable
 
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from glasses3 import Glasses3
 from glasses3.g3typing import Hostname
 
-g3_hostname = Hostname("tg02b-080105022801")
+g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
 
 
 @pytest.fixture(scope="module")

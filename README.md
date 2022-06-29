@@ -2,13 +2,23 @@
 
 A Python wrapper for the Glasses3 API
 
-## Dev Notes
+## Contributing
+### Logging
 To get more DEBUG logs from asyncio, set the environment variable PYTHONDEVMODE:
+
 ```$env:PYTHONDEVMODE = 1```
 
-## Docstrings
+### Environment
+The tests and examples load the glasses hostname, which by default is the serial number, from the `.env` file in the project root folder.
+See example content below:
 
+```
+G3_HOSTNAME=tg03b-080200045321
+```
+
+### Docstrings
 Docstrings is used to document code according to the following template:
+
 ```python
 """Module summary
 
