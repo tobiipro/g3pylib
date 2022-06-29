@@ -49,7 +49,7 @@ class TestRecorderRunning:
     async def test_get_gaze_samples(g3: Glasses3):
         gaze_samples = await g3.recorder.get_gaze_samples()
         assert type(gaze_samples) is int
-        assert gaze_samples >= 0 and gaze_samples <= 9223372036854776000
+        assert gaze_samples >= 0
 
     @staticmethod
     async def test_get_name(g3: Glasses3):
@@ -60,10 +60,7 @@ class TestRecorderRunning:
     async def test_get_remaining_time(g3: Glasses3):
         remaining_time = await g3.recorder.get_remaining_time()
         assert type(remaining_time) is timedelta
-        assert (
-            remaining_time.total_seconds() >= 0
-            and remaining_time.total_seconds() <= 4294967295
-        )
+        assert remaining_time.total_seconds() >= 0
 
     @staticmethod
     async def test_get_timezone(g3: Glasses3):
@@ -79,7 +76,7 @@ class TestRecorderRunning:
     async def test_get_valid_gaze_samples(g3: Glasses3):
         valid_gaze_samples = await g3.recorder.get_valid_gaze_samples()
         assert type(valid_gaze_samples) is int
-        assert valid_gaze_samples >= 0 and valid_gaze_samples <= 9223372036854776000
+        assert valid_gaze_samples >= 0
 
     @staticmethod
     async def test_get_and_set_visible_name(g3: Glasses3):
@@ -106,10 +103,7 @@ class TestRecorderRunning:
 
     @staticmethod
     async def test_send_event(g3: Glasses3):
-        send_event_successful = await g3.recorder.send_event(
-            "my-tag-name", {"key": "value"}
-        )
-        assert send_event_successful
+        assert await g3.recorder.send_event("my-tag-name", {"key": "value"})
 
     @staticmethod
     async def test_snapshot(g3: Glasses3):
@@ -119,8 +113,7 @@ class TestRecorderRunning:
 class TestRecorderNotRunning:
     @staticmethod
     async def test_get_created(g3: Glasses3):
-        created = await g3.recorder.get_created()
-        assert type(created) is NoneType
+        assert type(await g3.recorder.get_created()) is NoneType
 
     @staticmethod
     async def test_get_current_gaze_frequency(g3: Glasses3):
@@ -138,13 +131,12 @@ class TestRecorderNotRunning:
     async def test_get_and_set_folder(g3: Glasses3):
         assert await g3.recorder.get_folder() is None
         unique_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        await g3.recorder.set_folder(f"my-folder{unique_id}")
+        await g3.recorder.set_folder(f"my-folder-{unique_id}")
         assert await g3.recorder.get_folder() is None
 
     @staticmethod
     async def test_get_gaze_overlay(g3: Glasses3):
-        gaze_overlay = await g3.recorder.get_gaze_overlay()
-        assert type(gaze_overlay) is bool
+        assert not await g3.recorder.get_gaze_overlay()
 
     @staticmethod
     async def test_get_gaze_samples(g3: Glasses3):
@@ -162,10 +154,7 @@ class TestRecorderNotRunning:
     async def test_get_remaining_time(g3: Glasses3):
         remaining_time = await g3.recorder.get_remaining_time()
         assert type(remaining_time) is timedelta
-        assert (
-            remaining_time.total_seconds() >= 0
-            and remaining_time.total_seconds() <= 4294967295
-        )
+        assert remaining_time.total_seconds() >= 0
 
     @staticmethod
     async def test_get_timezone(g3: Glasses3):

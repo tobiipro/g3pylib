@@ -6,12 +6,10 @@ from glasses3 import Glasses3
 from glasses3.recordings.recording import Recording
 
 
-@pytest.mark.asyncio
 async def test_get_name(g3: Glasses3):
     assert await g3.recordings.get_name() == "recordings"
 
 
-@pytest.mark.asyncio
 async def test_child_added_and_removed_signals(g3: Glasses3):
     (
         added_children_queue,
@@ -40,7 +38,6 @@ async def test_child_added_and_removed_signals(g3: Glasses3):
 
 
 @pytest.mark.skip(reason="Scan tests need manual interaction.")
-@pytest.mark.asyncio
 async def test_scan_done_and_start_signals(g3: Glasses3):
     (
         scan_start_queue,
@@ -54,9 +51,3 @@ async def test_scan_done_and_start_signals(g3: Glasses3):
     assert await scan_done_queue.get() == []
     await unsubscribe_to_scan_start
     await unsubscribe_to_scan_done
-
-
-@pytest.mark.skip
-@pytest.mark.asyncio
-async def iterate(g3: Glasses3):
-    raise NotImplementedError
