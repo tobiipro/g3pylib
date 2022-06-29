@@ -90,3 +90,20 @@ async def test_get_visible_name(g3: Glasses3):
     assert type(visible_name) is str
     await cast(Recording, g3.recordings[0]).set_visible_name("myname")
     assert await cast(Recording, g3.recordings[0]).get_visible_name() == "myname"
+
+
+@pytest.mark.asyncio
+async def test_meta_data(g3: Glasses3):
+    insert_success = await cast(Recording, g3.recordings[0]).meta_insert("key1", "val1")
+    assert insert_success
+    insert_success = await cast(Recording, g3.recordings[0]).meta_insert("key2", "val2")
+    assert insert_success
+    meta_keys = await cast(Recording, g3.recordings[0]).meta_keys()
+    assert meta_keys == ["RuVersion", "HuSerial", "RuSerial", "key1", "key2"]
+    value1 = await cast(Recording, g3.recordings[0]).meta_lookup("key1")
+    assert value1 == "val1"
+    await cast(Recording, g3.recordings[0]).meta_insert("key2", None)
+    meta_keys = await cast(Recording, g3.recordings[0]).meta_keys()
+    assert meta_keys == ["RuVersion", "HuSerial", "RuSerial", "key1"]
+    non_existing_message = await cast(Recording, g3.recordings[0]).meta_lookup("key3")
+    assert non_existing_message == None
