@@ -39,8 +39,8 @@ class TestRecorderRunning:
     async def test_get_and_set_folder(g3: Glasses3):
         assert type(await g3.recorder.get_folder()) is str
         unique_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        await g3.recorder.set_folder(f"myfolder{unique_id}")
-        assert await g3.recorder.get_folder() == f"myfolder{unique_id}"
+        await g3.recorder.set_folder(f"my-folder-{unique_id}")
+        assert await g3.recorder.get_folder() == f"my-folder-{unique_id}"
 
     @staticmethod
     async def test_get_gaze_overlay(g3: Glasses3):
@@ -87,8 +87,8 @@ class TestRecorderRunning:
     async def test_get_and_set_visible_name(g3: Glasses3):
         visible_name = await g3.recorder.get_visible_name()
         assert type(visible_name) is NoneType
-        await g3.recorder.set_visible_name("myname")
-        assert await g3.recorder.get_visible_name() == "myname"
+        await g3.recorder.set_visible_name("my-name")
+        assert await g3.recorder.get_visible_name() == "my-name"
 
     @staticmethod
     async def test_meta_data(g3: Glasses3):
@@ -109,7 +109,7 @@ class TestRecorderRunning:
     @staticmethod
     async def test_send_event(g3: Glasses3):
         send_event_successful = await g3.recorder.send_event(
-            "mytagname", {"key": "value"}
+            "my-tag-name", {"key": "value"}
         )
         assert send_event_successful
 
@@ -140,7 +140,7 @@ class TestRecorderNotRunning:
     async def test_get_and_set_folder(g3: Glasses3):
         assert await g3.recorder.get_folder() is None
         unique_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        await g3.recorder.set_folder(f"myfolder{unique_id}")
+        await g3.recorder.set_folder(f"my-folder{unique_id}")
         assert await g3.recorder.get_folder() is None
 
     @staticmethod
@@ -189,7 +189,7 @@ class TestRecorderNotRunning:
     async def test_get_and_set_visible_name(g3: Glasses3):
         visible_name = await g3.recorder.get_visible_name()
         assert type(visible_name) is NoneType
-        await g3.recorder.set_visible_name("myname")
+        await g3.recorder.set_visible_name("my-name")
         assert await g3.recorder.get_visible_name() == None
 
     @staticmethod
@@ -204,7 +204,7 @@ class TestRecorderNotRunning:
     @staticmethod
     async def test_send_event(g3: Glasses3):
         send_event_successful = await g3.recorder.send_event(
-            "mytagname", {"key": "value"}
+            "my-tag-name", {"key": "value"}
         )
         assert not send_event_successful
 
