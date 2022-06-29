@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import cast
 
 import pytest
@@ -16,24 +16,28 @@ async def test_get_created(g3: Glasses3):
 @pytest.mark.asyncio
 async def test_get_duration(g3: Glasses3):
     duration = await cast(Recording, g3.recordings[0]).get_duration()
-    assert type(duration) is float  # timedelta?
+    assert type(duration) is timedelta
     assert (
-        duration >= 0 and duration <= 1.7976931348623157e308
+        duration.total_seconds() >= 0
+        and duration.total_seconds() <= 1.7976931348623157e308
     )  # vill vi kolla övre gränser?
 
 
-@pytest.mark.skip(reason="Cannot get move to work.")
 @pytest.mark.asyncio
 async def test_get_folder_and_move(g3: Glasses3):
     folder = await cast(Recording, g3.recordings[0]).get_folder()
     assert type(folder) is str
-    await cast(Recording, g3.recordings[0]).move("myfolder")
+    unique_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    await cast(Recording, g3.recordings[0]).move(f"movefolder{unique_id}")
+    assert (
+        await cast(Recording, g3.recordings[0]).get_folder() == f"movefolder{unique_id}"
+    )
 
 
 @pytest.mark.asyncio
-async def test_recording_get_gaze_overlay(
+async def test_get_gaze_overlay(
     g3: Glasses3,
-):  # maybe naming convention test_recording_get_gaze...
+):
     assert not await cast(Recording, g3.recordings[0]).get_gaze_overlay()
 
 
@@ -52,7 +56,7 @@ async def test_get_http_path(g3: Glasses3):
 
 
 @pytest.mark.asyncio
-async def test_get_name_of_recording(g3: Glasses3):
+async def test_get_name(g3: Glasses3):
     name = await cast(Recording, g3.recordings[0]).get_name()
     assert type(name) is str
     assert name == cast(Recording, g3.recordings[0]).uuid
@@ -72,7 +76,7 @@ async def test_get_timezone(g3: Glasses3):
 
 
 @pytest.mark.asyncio
-async def test_recording_get_valid_gaze_samples(g3: Glasses3):
+async def test_get_valid_gaze_samples(g3: Glasses3):
     valid_gaze_samples = await cast(
         Recording, g3.recordings[0]
     ).get_valid_gaze_samples()
@@ -81,7 +85,7 @@ async def test_recording_get_valid_gaze_samples(g3: Glasses3):
 
 
 @pytest.mark.asyncio
-async def test_recording_get_visible_name(g3: Glasses3):
+async def test_get_visible_name(g3: Glasses3):
     visible_name = await cast(Recording, g3.recordings[0]).get_visible_name()
     assert type(visible_name) is str
     await cast(Recording, g3.recordings[0]).set_visible_name("myname")

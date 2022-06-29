@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import List, cast
+from datetime import datetime, timedelta
+from typing import List, Optional, cast
 
 from glasses3.g3typing import URI
 from glasses3.utils import APIComponent, EndpointKind
@@ -27,13 +27,16 @@ class Recording(APIComponent):
         )
         return datetime.fromisoformat(created.strip("Z"))
 
-    async def get_duration(self) -> float:
-        return cast(
+    async def get_duration(self) -> Optional[timedelta]:
+        duration = cast(
             float,
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "duration")
             ),
         )
+        if duration == -1:
+            return None
+        return timedelta(seconds=duration)
 
     async def get_folder(self) -> str:
         return cast(
@@ -116,7 +119,7 @@ class Recording(APIComponent):
             ),
         )
 
-    async def meta_insert(self, key: str, meta: str) -> bool:
+    async def meta_insert(self, key: str, meta: Optional[str]) -> bool:
         return cast(
             bool,
             await self._connection.require_post(

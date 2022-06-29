@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import NoneType
 from typing import Awaitable, List, Optional, Tuple, cast
 
@@ -21,19 +21,33 @@ class Recorder(APIComponent):
             return None
         return datetime.fromisoformat(cast(str, response).strip("Z"))
 
-    async def get_current_gaze_frequency(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "current-gaze-frequency")
+    async def get_current_gaze_frequency(self) -> int:
+        return cast(
+            int,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(
+                    EndpointKind.PROPERTY, "current-gaze-frequency"
+                )
+            ),
         )
 
-    async def get_duration(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "duration")
+    async def get_duration(self) -> Optional[timedelta]:
+        duration = cast(
+            float,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "duration")
+            ),
         )
+        if duration == -1:
+            return None
+        return timedelta(seconds=duration)
 
-    async def get_folder(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "folder")
+    async def get_folder(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "folder")
+            ),
         )
 
     async def set_folder(self, value: str) -> bool:
@@ -44,44 +58,70 @@ class Recorder(APIComponent):
             ),
         )
 
-    async def get_gaze_overlay(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-overlay")
+    async def get_gaze_overlay(self) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-overlay")
+            ),
         )
 
-    async def get_gaze_samples(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-samples")
+    async def get_gaze_samples(self) -> int:
+        return cast(
+            int,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-samples")
+            ),
         )
 
-    async def get_name(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "name")
+    async def get_name(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "name")
+            ),
         )
 
-    async def get_remaining_time(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "remaining-time")
+    async def get_remaining_time(self) -> timedelta:
+        return timedelta(
+            seconds=cast(
+                int,
+                await self._connection.require_get(
+                    self.generate_endpoint_uri(EndpointKind.PROPERTY, "remaining-time")
+                ),
+            )
         )
 
-    async def get_timezone(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "timezone")
+    async def get_timezone(self) -> str:  # return timezone?
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "timezone")
+            ),
         )
 
-    async def get_uuid(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "uuid")
+    async def get_uuid(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "uuid")
+            ),
         )
 
-    async def get_valid_gaze_samples(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "valid-gaze-samples")
+    async def get_valid_gaze_samples(self) -> int:
+        return cast(
+            int,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "valid-gaze-samples")
+            ),
         )
 
-    async def get_visible_name(self) -> JSONObject:
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name")
+    async def get_visible_name(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name")
+            ),
         )
 
     async def set_visible_name(self, value: str) -> bool:
@@ -93,7 +133,7 @@ class Recorder(APIComponent):
             ),
         )
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         await self._connection.require_post(
             self.generate_endpoint_uri(EndpointKind.ACTION, "cancel")
         )

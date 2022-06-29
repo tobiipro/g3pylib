@@ -47,17 +47,18 @@ async def test_get_duration(g3: Glasses3):
     start_time = datetime.utcnow()
     await g3.recorder.start()
     duration = await g3.recorder.get_duration()
-    assert type(duration) is float  # timedelta?
+    assert type(duration) is timedelta
     assert (
-        duration >= 0 and duration <= 1.7976931348623157e308
+        duration.total_seconds() >= 0
+        and duration.total_seconds() <= 1.7976931348623157e308
     )  # vill vi kolla övre gränser?
     estimated_duration = (datetime.utcnow() - start_time).total_seconds()
-    assert estimated_duration - duration < 2
+    assert (estimated_duration - duration.total_seconds()) < 2
 
     await g3.recorder.cancel()
     duration = await g3.recorder.get_duration()
-    assert type(duration) is float  # timedelta?
-    assert duration == -1
+    assert type(duration) is NoneType
+    assert duration == None
 
 
 @pytest.mark.asyncio
@@ -115,13 +116,19 @@ async def test_get_name(g3: Glasses3):
 async def test_get_remaining_time(g3: Glasses3):
     await g3.recorder.start()
     remaining_time = await g3.recorder.get_remaining_time()
-    assert type(remaining_time) is int
-    assert remaining_time >= 0 and remaining_time <= 4294967295
+    assert type(remaining_time) is timedelta
+    assert (
+        remaining_time.total_seconds() >= 0
+        and remaining_time.total_seconds() <= 4294967295
+    )
 
     await g3.recorder.cancel()
     remaining_time = await g3.recorder.get_remaining_time()
-    assert type(remaining_time) is int
-    assert remaining_time >= 0 and remaining_time <= 4294967295
+    assert type(remaining_time) is timedelta
+    assert (
+        remaining_time.total_seconds() >= 0
+        and remaining_time.total_seconds() <= 4294967295
+    )
 
 
 @pytest.mark.asyncio
@@ -129,7 +136,6 @@ async def test_get_timezone(g3: Glasses3):
     await g3.recorder.start()
     timezone = await g3.recorder.get_timezone()
     assert type(timezone) is str
-    assert timezone == "Etc/UTC"
 
     await g3.recorder.cancel()
     timezone = await g3.recorder.get_timezone()
@@ -187,6 +193,8 @@ async def test_meta_keys(g3: Glasses3):
     value1 = await g3.recorder.meta_lookup("key1")
     assert value1 == "val1"
     await g3.recorder.meta_insert("key2", None)
+    meta_keys = await g3.recorder.meta_keys()
+    assert meta_keys == ["key1"]
     non_existing_message = await g3.recorder.meta_lookup("key3")
     assert non_existing_message == None
 
@@ -196,7 +204,7 @@ async def test_meta_keys(g3: Glasses3):
 @pytest.mark.skip(reason="Need action handler to test this feature.")
 @pytest.mark.asyncio
 async def test_send_event(g3: Glasses3):
-    raise NotImplemented
+    raise NotImplementedError
 
 
 @pytest.mark.asyncio
@@ -214,17 +222,13 @@ async def test_start_stop_and_signals(g3: Glasses3):
     start_response = await g3.recorder.start()
     assert start_response == True
 
-    uuid_of_started_recording = cast(
-        List[str], await asyncio.wait_for(queue_of_started.get(), timeout=1)
-    )[0]
+    uuid_of_started_recording = cast(List[str], await queue_of_started.get())[0]
     assert type(uuid_of_started_recording[0]) is str
 
     stop_response = await g3.recorder.stop()
     assert stop_response == True  # always true..?
 
-    folder_of_stopped_recording = cast(
-        List[str], await asyncio.wait_for(queue_of_stopped.get(), timeout=1)
-    )[0]
+    folder_of_stopped_recording = cast(List[str], await queue_of_stopped.get())[0]
     assert type(folder_of_stopped_recording) is str
 
     assert cast(Recording, g3.recordings[0]).uuid == uuid_of_started_recording

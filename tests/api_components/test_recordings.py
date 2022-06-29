@@ -26,18 +26,12 @@ async def test_child_added_and_removed_signals(g3: Glasses3):
 
     await g3.recorder.start()
     await g3.recorder.stop()
-    recording_uuid = cast(
-        List[str], await asyncio.wait_for(added_children_queue.get(), timeout=1)
-    )[0]
+    recording_uuid = cast(List[str], await added_children_queue.get())[0]
     assert recording_uuid == cast(Recording, g3.recordings[0]).uuid
 
     assert await g3.recordings.delete(recording_uuid)
-    removed_child_uuid = cast(
-        List[str], await asyncio.wait_for(removed_children_queue.get(), timeout=1)
-    )[0]
-    deleted_recording_uuid = cast(
-        List[str], await asyncio.wait_for(deleted_queue.get(), timeout=1)
-    )[0]
+    removed_child_uuid = cast(List[str], await removed_children_queue.get())[0]
+    deleted_recording_uuid = cast(List[str], await deleted_queue.get())[0]
     assert recording_uuid == removed_child_uuid
     assert recording_uuid == deleted_recording_uuid
 
@@ -46,9 +40,7 @@ async def test_child_added_and_removed_signals(g3: Glasses3):
     await unsubscribe_to_deleted
 
 
-@pytest.mark.skip(
-    reason="Scan tests would need manual interaction unless we can trigger a scan somehow."
-)
+@pytest.mark.skip(reason="Scan tests need manual interaction.")
 @pytest.mark.asyncio
 async def test_scan_done_and_start_signals(g3: Glasses3):
     (
@@ -68,4 +60,4 @@ async def test_scan_done_and_start_signals(g3: Glasses3):
 @pytest.mark.skip
 @pytest.mark.asyncio
 async def iterate(g3: Glasses3):
-    raise NotImplemented
+    raise NotImplementedError
