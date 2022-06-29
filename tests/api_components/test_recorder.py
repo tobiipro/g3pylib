@@ -9,23 +9,21 @@ from glasses3.recordings.recording import Recording
 
 
 class TestRecorderRunning:
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="class", autouse=True)
     @staticmethod
     async def recording_g3(g3: Glasses3):
         await g3.recorder.start()
-        yield g3
+        yield
         await g3.recorder.stop()
 
     @staticmethod
-    async def test_get_created(recording_g3: Glasses3):
-        created = await recording_g3.recorder.get_created()
+    async def test_get_created(g3: Glasses3):
+        created = await g3.recorder.get_created()
         assert type(created) is datetime
 
     @staticmethod
-    async def test_get_current_gaze_frequency(recording_g3: Glasses3):
-        current_gaze_frequency = (
-            await recording_g3.recorder.get_current_gaze_frequency()
-        )
+    async def test_get_current_gaze_frequency(g3: Glasses3):
+        current_gaze_frequency = await g3.recorder.get_current_gaze_frequency()
         assert type(current_gaze_frequency) is int
         assert current_gaze_frequency >= 0 and current_gaze_frequency <= 100
 
