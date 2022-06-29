@@ -42,9 +42,9 @@ class Recorder(APIComponent):
             return None
         return timedelta(seconds=duration)
 
-    async def get_folder(self) -> str:
+    async def get_folder(self) -> Optional[str]:
         return cast(
-            str,
+            Optional[str],
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "folder")
             ),
@@ -66,13 +66,16 @@ class Recorder(APIComponent):
             ),
         )
 
-    async def get_gaze_samples(self) -> int:
-        return cast(
+    async def get_gaze_samples(self) -> Optional[int]:
+        gaze_samples = cast(
             int,
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-samples")
             ),
         )
+        if gaze_samples == -1:
+            return None
+        return gaze_samples
 
     async def get_name(self) -> str:
         return cast(
@@ -92,33 +95,36 @@ class Recorder(APIComponent):
             )
         )
 
-    async def get_timezone(self) -> str:  # return timezone?
+    async def get_timezone(self) -> Optional[str]:  # return timezone?
         return cast(
-            str,
+            Optional[str],
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "timezone")
             ),
         )
 
-    async def get_uuid(self) -> str:
+    async def get_uuid(self) -> Optional[str]:
         return cast(
-            str,
+            Optional[str],
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "uuid")
             ),
         )
 
-    async def get_valid_gaze_samples(self) -> int:
-        return cast(
+    async def get_valid_gaze_samples(self) -> Optional[int]:
+        valid_gaze_samples = cast(
             int,
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "valid-gaze-samples")
             ),
         )
+        if valid_gaze_samples == -1:
+            return None
+        return valid_gaze_samples
 
-    async def get_visible_name(self) -> str:
+    async def get_visible_name(self) -> Optional[str]:
         return cast(
-            str,
+            Optional[str],
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "visible-name")
             ),

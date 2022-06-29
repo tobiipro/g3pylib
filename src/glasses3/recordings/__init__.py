@@ -17,9 +17,12 @@ class Recordings(APIComponent):
         self.logger = logging.getLogger(__name__)
         super().__init__(api_uri)
 
-    async def get_name(self):
-        return await self._connection.require_get(
-            self.generate_endpoint_uri(EndpointKind.PROPERTY, "name")
+    async def get_name(self) -> str:
+        return cast(
+            str,
+            await self._connection.require_get(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "name")
+            ),
         )
 
     async def delete(self, uuid: str) -> bool:

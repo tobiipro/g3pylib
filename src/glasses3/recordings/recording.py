@@ -54,13 +54,16 @@ class Recording(APIComponent):
             ),
         )
 
-    async def get_gaze_samples(self) -> int:
-        return cast(
+    async def get_gaze_samples(self) -> Optional[int]:
+        gaze_samples = cast(
             int,
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-samples")
             ),
         )
+        if gaze_samples == -1:
+            return None
+        return gaze_samples
 
     async def get_http_path(self) -> str:
         return cast(
@@ -94,13 +97,16 @@ class Recording(APIComponent):
             ),
         )
 
-    async def get_valid_gaze_samples(self) -> int:
-        return cast(
+    async def get_valid_gaze_samples(self) -> Optional[int]:
+        valid_gaze_samples = cast(
             int,
             await self._connection.require_get(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "valid-gaze-samples")
             ),
         )
+        if valid_gaze_samples == -1:
+            return None
+        return valid_gaze_samples
 
     async def get_visible_name(self) -> str:
         return cast(
