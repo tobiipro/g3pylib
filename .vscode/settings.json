@@ -6,6 +6,7 @@
     "python.sortImports.path": "isort",
     "cSpell.words": [
         "asyncio",
+        "autouse",
         "Docstrings",
         "isort",
         "keepalive",
