@@ -124,8 +124,31 @@ async def use_case_rudimentary_streams():
         await unsubscribe
 
 
+async def use_case_crash_receiver_task():
+    async with Glasses3.connect(g3_hostname) as g3:
+        await g3.rudimentary.start_streams()
+        assert await g3.rudimentary.send_event("my-tag", {"my-key": "my-value"})
+
+        async def retry_get_event_sample():
+            event_sample = await g3.rudimentary.get_event_sample()
+            while event_sample == {}:
+                event_sample = (
+                    await g3.rudimentary.get_event_sample()
+                )  # shield this coroutine to protect future from cancellation
+            return event_sample
+
+        try:
+            print(
+                f"Event sample: {await asyncio.wait_for(retry_get_event_sample(), timeout=1)}"
+            )
+        except asyncio.TimeoutError:
+            print("TimeoutError")
+        finally:
+            await g3.rudimentary.stop_streams()
+
+
 async def handler():
-    await asyncio.gather(use_case_rudimentary_streams())
+    await asyncio.gather(use_case_crash_receiver_task())
 
 
 def main():
