@@ -184,7 +184,7 @@ class G3WebSocketClientProtocol(
             """Listens for and handles/delegates incoming messages."""
             async for message in self:
                 json_message: JSONObject = json.loads(message)
-                self.g3_logger.info(f"Received {json_message}")
+                self.g3_logger.debug(f"Received {json_message}")
                 match json_message:
                     case {"id": message_id, "body": message_body}:
                         del json_message["id"]
@@ -196,6 +196,7 @@ class G3WebSocketClientProtocol(
                             cast(SignalId, signal_id), cast(SignalBody, signal_body)
                         )
                     case _:
+                        self.g3_logger.debug(f"Invalid response to receiver task")
                         raise InvalidResponseError
 
         self.g3_logger.debug("Receiver task starting")
@@ -206,10 +207,10 @@ class G3WebSocketClientProtocol(
         self._message_count += 1
         request["id"] = self._message_count
         string_request_with_id = json.dumps(request)
-        await self.send(string_request_with_id)
         future = self._future_messages[
             MessageId(self._message_count)
         ] = self._event_loop.create_future()
+        await self.send(string_request_with_id)
         return await future
 
     async def require_get(

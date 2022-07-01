@@ -101,7 +101,6 @@ class Recordings(APIComponent):
             and self._handle_child_removed_task is None
         ):
             self._children = await self._get_children()
-            print(self._children.keys())
             (
                 added_children_queue,
                 self._unsubscribe_to_child_added,
@@ -130,10 +129,10 @@ class Recordings(APIComponent):
             self._handle_child_added_task is not None
             and self._handle_child_removed_task is not None
         ):
-            self._handle_child_added_task.cancel()
-            self._handle_child_removed_task.cancel()
             await self._unsubscribe_to_child_added
             await self._unsubscribe_to_child_removed
+            self._handle_child_added_task.cancel()
+            self._handle_child_removed_task.cancel()
         else:
             self.logger.warn(
                 "Attempted stopping children handlers before starting them."
