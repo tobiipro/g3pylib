@@ -47,7 +47,7 @@ class Rudimentary(APIComponent):
             bool,
             await self._connection.require_post(
                 self.generate_endpoint_uri(EndpointKind.PROPERTY, "scene-quality"),
-                body=[value],
+                body=value,
             ),
         )
 
@@ -63,8 +63,8 @@ class Rudimentary(APIComponent):
         return cast(
             bool,
             await self._connection.require_post(
-                self.generate_endpoint_uri(EndpointKind.PROPERTY, "scene-quality"),
-                body=[value],
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "scene-scale"),
+                body=value,
             ),
         )
 
