@@ -8,6 +8,7 @@
         "asyncio",
         "autouse",
         "Docstrings",
+        "dotenv",
         "isort",
         "keepalive",
         "pyright",
