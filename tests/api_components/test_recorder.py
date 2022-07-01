@@ -14,7 +14,9 @@ class TestRecorderRunning:
     async def recording_g3(g3: Glasses3):
         await g3.recorder.start()
         yield
+        uuid = cast(str, await g3.recorder.get_uuid())
         await g3.recorder.stop()
+        await g3.recordings.delete(uuid)
 
     @staticmethod
     async def test_get_created(g3: Glasses3):
@@ -216,8 +218,9 @@ class TestRecorderNotRunning:
         uuid_of_started_recording = cast(List[str], await queue_of_started.get())[0]
         assert type(uuid_of_started_recording[0]) is str
 
+        uuid = cast(str, await g3.recorder.get_uuid())
         stop_successful = await g3.recorder.stop()
-        assert stop_successful  # always true..?
+        assert stop_successful
 
         folder_of_stopped_recording = cast(List[str], await queue_of_stopped.get())[0]
         assert type(folder_of_stopped_recording) is str
@@ -230,3 +233,4 @@ class TestRecorderNotRunning:
 
         await unsubscribe_to_started
         await unsubscribe_to_stopped
+        await g3.recordings.delete(uuid)
