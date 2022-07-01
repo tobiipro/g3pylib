@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Awaitable, Tuple, cast
 
 from glasses3.g3typing import URI, JSONObject, SignalBody
@@ -9,6 +10,8 @@ from glasses3.websocket import G3WebSocketClientProtocol
 class Rudimentary(APIComponent):
     def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
         self._connection = connection
+        self._streams_started = asyncio.Event()
+        self.logger = logging.getLogger(__name__)
         super().__init__(api_uri)
 
     async def get_event_sample(self) -> JSONObject:
@@ -73,10 +76,11 @@ class Rudimentary(APIComponent):
             self.generate_endpoint_uri(EndpointKind.PROPERTY, "sync-port-sample")
         )
 
-    def start_streams(self) -> None:
+    async def start_streams(self) -> None:
         async def keepalive_task():
             while True:
                 success = await self.keepalive()
+                self._streams_started.set()
                 if not success:
                     raise asyncio.CancelledError(
                         "The Glasses rudimentary streams did not want to stay alive"
@@ -84,9 +88,16 @@ class Rudimentary(APIComponent):
                 await asyncio.sleep(5)
 
         self._keepalive_task = asyncio.create_task(keepalive_task())
+        await self._streams_started.wait()
 
-    def stop_streams(self) -> None:
+    async def stop_streams(self) -> None:
         self._keepalive_task.cancel()
+        try:
+            await self._keepalive_task
+        except asyncio.CancelledError:
+            self.logger.debug("keepalive task cancelled")
+        finally:
+            self._streams_started.clear()
 
     async def calibrate(self) -> bool:
         return cast(
