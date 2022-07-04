@@ -9,6 +9,7 @@ from glasses3.g3typing import URI, Hostname, LoggerLike
 from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
 from glasses3.rudimentary import Rudimentary
+from glasses3.system import System
 from glasses3.utils import APIComponent
 from glasses3.websocket import G3WebSocketClientProtocol
 
@@ -25,6 +26,7 @@ class Glasses3(APIComponent):
         self._recorder: Optional[Recorder] = None
         self._recordings: Optional[Recordings] = None
         self._rudimentary: Optional[Rudimentary] = None
+        self._system: Optional[System] = None
 
     @property
     def recorder(self):
@@ -43,6 +45,12 @@ class Glasses3(APIComponent):
         if self._rudimentary is None:
             self._rudimentary = Rudimentary(self._connection, URI("/rudimentary"))
         return self._rudimentary
+
+    @property
+    def system(self):
+        if self._system is None:
+            self._system = System(self._connection, URI("/system"))
+        return self._system
 
     @classmethod
     @asynccontextmanager
