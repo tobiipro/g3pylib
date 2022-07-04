@@ -141,7 +141,7 @@ class Recordings(APIComponent):
     @property
     def children(self) -> List[Recording]:
         """This property is not recommended for use since the object itself has functionality of a list. See `__iter__` and `__getitem__` methods."""
-        return list(self._children.values())[::-1]
+        return list(reversed(self._children.values()))
 
     def __iter__(self) -> Iterable[Recording]:
         yield from reversed(self._children.values())
