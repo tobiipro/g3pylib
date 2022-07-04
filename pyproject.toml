@@ -1,6 +1,30 @@
 [build-system]
-requires = ["setuptools>=42"]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "g3pylib"
+authors = [{name = "Markus Wesslén", email = "mw2013@tobii.com"}, {name = "Oskar Söderberg", email = "os2012@tobii.com"}]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Typing :: Typed",
+    "Private :: Do Not Upload"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "websockets ~= 10.3",
+    "zeroconf ~= 0.38.7",
+]
+dynamic = ["version", "description"]
+
+[project.urls]
+Home = "https://github.com/tobiipro/g3pylib"
+
+[tool.flit.module]
+name = "glasses3"
 
 [tool.pyright]
 include = ["src", "examples", "tests"]

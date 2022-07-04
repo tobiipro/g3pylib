@@ -1,4 +1,7 @@
+"""This is the g3pylib package root."""
 from __future__ import annotations
+
+__version__ = "0.1.0-alpha"
 
 import logging
 from contextlib import asynccontextmanager
