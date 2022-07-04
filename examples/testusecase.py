@@ -11,6 +11,7 @@ import glasses3.websocket as g3_websocket
 from glasses3 import Glasses3
 from glasses3.g3typing import URI, Hostname, JSONDict
 from glasses3.recordings.recording import Recording
+from glasses3.zeroconf import G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -147,8 +148,13 @@ async def use_case_crash_receiver_task():
             await g3.rudimentary.stop_streams()
 
 
+async def use_case_zeroconf():
+    async with G3ServiceDiscovery.connect() as gsd:
+        print(gsd.services)
+
+
 async def handler():
-    await asyncio.gather(use_case_crash_receiver_task())
+    await asyncio.gather(use_case_zeroconf())
 
 
 def main():

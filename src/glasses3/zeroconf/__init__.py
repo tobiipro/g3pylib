@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import Task
+import logging
+from asyncio import Future, Task
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Coroutine, Dict, Set
 
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
-from glasses3.zeroconf.exceptions import ServiceDiscoveryError
+from glasses3.zeroconf.exceptions import ServiceDiscoveryError, ServiceEventError
+
+logger = logging.getLogger(__name__)
 
 
 class ZeroconfListener(ServiceListener):
@@ -61,9 +64,9 @@ class G3Service:
                 for name in (
                     "hostname",
                     "type",
+                    "server",
                     "ipv4_address",
                     "ipv6_address",
-                    "server",
                 )
             ),
         )
@@ -72,15 +75,25 @@ class G3Service:
 class _G3ServicesHandler:
     def __init__(self) -> None:
         self._service_tasks: Set[Task[None]] = set()
-        self._services: Dict[str, G3Service] = dict()
+        self._services: Future[
+            Dict[str, G3Service]
+        ] = asyncio.get_running_loop().create_future()
 
     @property
     def services(self):
+        return self._services.result()
+
+    @property
+    def future_services(self):
         return self._services
 
     def update_service(self, zc: Zeroconf, name: str):
         async def update_service_task():
-            service_info = self._services[name].service_info
+            if not self._services.done():
+                raise ServiceEventError(
+                    f"Update service tried before any service was added."
+                )
+            service_info = self._services.result()[name].service_info
             if not await service_info.async_request(zc, 3000):
                 raise ServiceDiscoveryError(
                     f"Service with name {service_info.name} was not discovered."
@@ -89,14 +102,22 @@ class _G3ServicesHandler:
         self._create_service_task(update_service_task(), f"update_service_{name}")
 
     def remove_service(self, name: str):
-        del self._services[name]
+        if not self._services.done():
+            raise ServiceEventError(
+                f"Remove service tried before any service was added."
+            )
+        del self._services.result()[name]
 
     def add_service(self, zc: Zeroconf, type_: str, name: str):
         async def add_service_task():
             service_info = AsyncServiceInfo(type_, name)
-            self._services[service_info.get_name()] = G3Service(service_info)
             if not await service_info.async_request(zc, 3000):
-                raise ServiceDiscoveryError(f"{service_info}")
+                raise ServiceDiscoveryError(
+                    f"Service with name {service_info.name} was not discovered."
+                )
+            if not self._services.done():
+                self._services.set_result(dict())
+            self._services.result()[service_info.get_name()] = G3Service(service_info)
 
         self._create_service_task(add_service_task(), f"add_service_{name}")
 
@@ -124,6 +145,13 @@ class G3ServiceDiscovery:
             await async_zeroconf.async_add_service_listener(
                 cls.G3_SERVICE_TYPE_NAME, zeroconf_listener
             )
+            try:
+                await asyncio.wait_for(
+                    services_handler.future_services, 3000
+                )  # TODO: Can this be avoided with a DNS question?
+            except TimeoutError:
+                logger.debug("No Zeroconf services found before timeout")
+
             yield cls(async_zeroconf, services_handler)
 
     @property
