@@ -1,0 +1,8 @@
+-r requirements.txt
+pre-commit
+python-dotenv
+pytest
+pytest-dotenv
+pytest-asyncio
+black
+isort

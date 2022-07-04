@@ -1,6 +1,2 @@
-websockets
-pre-commit
-python-dotenv
-pytest
-pytest-dotenv
-pytest-asyncio
+websockets ~= 10.3
+zeroconf ~= 0.38.7
