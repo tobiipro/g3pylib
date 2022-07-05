@@ -150,7 +150,9 @@ async def use_case_crash_receiver_task():
 
 async def use_case_zeroconf():
     async with G3ServiceDiscovery.connect() as gsd:
-        print(gsd.services)
+        while True:
+            print(gsd.services)
+            await asyncio.sleep(10)
 
 
 async def handler():
