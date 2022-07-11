@@ -36,13 +36,13 @@ class EndpointKind(Enum):
 
 def create_task(coro: Coroutine[Any, Any, Any], *, name: Any = None) -> Task[Any]:
     task = asyncio.create_task(coro, name=name)
-    task.add_done_callback(raise_error)
+    task.add_done_callback(_raise_error)
     return task
 
 
-def raise_error(fut: Union[Task[Any], Future[Any]]):
+def _raise_error(task: Task[Any]):
     try:
-        exception = fut.exception()
+        exception = task.exception()
         if exception is not None:
             raise exception
     except asyncio.CancelledError:
