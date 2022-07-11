@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+from asyncio import Task
 from enum import Enum, auto
+from typing import Any, Coroutine
 
 from glasses3.g3typing import URI
 
@@ -29,3 +32,18 @@ class EndpointKind(Enum):
                 return "!"
             case EndpointKind.SIGNAL:
                 return ":"
+
+
+def create_task(coro: Coroutine[Any, Any, Any], *, name: Any = None) -> Task[Any]:
+    task = asyncio.create_task(coro, name=name)
+    task.add_done_callback(_raise_task_error)
+    return task
+
+
+def _raise_task_error(task: Task[Any]):
+    try:
+        exception = task.exception()
+        if exception is not None:
+            raise exception
+    except asyncio.CancelledError:
+        pass

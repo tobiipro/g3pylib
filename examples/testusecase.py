@@ -143,7 +143,7 @@ async def use_case_crash_receiver_task():
                 f"Event sample: {await asyncio.wait_for(retry_get_event_sample(), timeout=1)}"
             )
         except asyncio.TimeoutError:
-            print("TimeoutError")
+            print("Timed out. No event sample was received.")
         finally:
             await g3.rudimentary.stop_streams()
 
