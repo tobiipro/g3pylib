@@ -13,6 +13,7 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
+from glasses3 import utils
 from glasses3.g3typing import (
     URI,
     Hostname,
@@ -200,7 +201,7 @@ class G3WebSocketClientProtocol(
                         raise InvalidResponseError
 
         self.g3_logger.debug("Receiver task starting")
-        self._receiver_task = asyncio.create_task(receiver_task(), name="g3_receiver")
+        self._receiver_task = utils.create_task(receiver_task(), name="g3_receiver")
 
     async def require(self, request: JSONDict) -> JSONObject:
         """Sends a request  with a unique id and returns the body of the response with the same id."""

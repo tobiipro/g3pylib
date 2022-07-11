@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Awaitable, Tuple, cast
 
+from glasses3 import utils
 from glasses3.g3typing import URI, JSONObject, SignalBody
 from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
@@ -87,7 +88,7 @@ class Rudimentary(APIComponent):
                     )
                 await asyncio.sleep(5)
 
-        self._keepalive_task = asyncio.create_task(keepalive_task())
+        self._keepalive_task = utils.create_task(keepalive_task())
         await self._streams_started.wait()
 
     async def stop_streams(self) -> None:

@@ -9,6 +9,7 @@ from typing import AsyncIterator, Coroutine, Dict, Optional, Set
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
+from glasses3 import utils
 from glasses3.zeroconf.exceptions import ServiceDiscoveryError, ServiceEventError
 
 logger = logging.getLogger(__name__)
@@ -128,7 +129,7 @@ class _G3ServicesHandler:
             raise ServiceDiscoveryError(f"Service with name {name} was not discovered.")
 
     def _create_service_task(self, coro: Coroutine[None, None, None], name: str):
-        task = asyncio.create_task(coro, name=name)
+        task = utils.create_task(coro, name=name)
         self._service_tasks.add(task)
         task.add_done_callback(self._service_tasks.discard)
 

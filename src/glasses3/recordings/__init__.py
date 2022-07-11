@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Awaitable, Dict, Iterable, List, Tuple, Union, cast
 
+from glasses3 import utils
 from glasses3.g3typing import URI, SignalBody
 from glasses3.recordings.recording import Recording
 from glasses3.utils import APIComponent, EndpointKind
@@ -113,10 +114,10 @@ class Recordings(APIComponent):
             ) = await self._connection.subscribe_to_signal(
                 self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-removed")
             )
-            self._handle_child_added_task = asyncio.create_task(
+            self._handle_child_added_task = utils.create_task(
                 handle_child_added_task(added_children_queue)
             )
-            self._handle_child_removed_task = asyncio.create_task(
+            self._handle_child_removed_task = utils.create_task(
                 handle_child_removed_task(removed_children_queue)
             )
         else:
