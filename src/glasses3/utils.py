@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import Future, Task
+from asyncio import Task
 from enum import Enum, auto
-from typing import Any, Coroutine, Union
+from typing import Any, Coroutine
 
 from glasses3.g3typing import URI
 
