@@ -211,7 +211,6 @@ class G3WebSocketClientProtocol(
         future = self._future_messages[
             MessageId(self._message_count)
         ] = self._event_loop.create_future()
-        future.add_done_callback(utils.raise_error)
         await self.send(string_request_with_id)
         return await future
 
