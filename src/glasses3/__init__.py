@@ -62,3 +62,4 @@ class Glasses3(APIComponent):
             g3 = cast(G3WebSocketClientProtocol, g3)
             g3.start_receiver_task()
             yield cls(g3)
+            await g3.close_g3()

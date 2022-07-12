@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from typing import Awaitable, Dict, Iterable, List, Tuple, Union, cast
 
 from glasses3 import utils
@@ -121,7 +122,7 @@ class Recordings(APIComponent):
                 handle_child_removed_task(removed_children_queue)
             )
         else:
-            self.logger.warn(
+            self.logger.warning(
                 "Attempted starting children handlers when already started."
             )  # TODO: other type of warning?
 
@@ -134,8 +135,18 @@ class Recordings(APIComponent):
             await self._unsubscribe_to_child_removed
             self._handle_child_added_task.cancel()
             self._handle_child_removed_task.cancel()
+            try:
+                await self._handle_child_added_task
+            except asyncio.CancelledError:
+                self.logger.debug("handle_child_added_task cancelled")
+            try:
+                await self._handle_child_removed_task
+            except asyncio.CancelledError:
+                self.logger.debug("handle_child_removed_task cancelled")
+            self._handle_child_added_task = None
+            self._handle_child_removed_task = None
         else:
-            self.logger.warn(
+            self.logger.warning(
                 "Attempted stopping children handlers before starting them."
             )  # TODO: other type of warning?
 
@@ -153,3 +164,12 @@ class Recordings(APIComponent):
     def __getitem__(self, key: Union[int, slice]) -> Union[Recording, List[Recording]]:
         children_list_reversed = list(reversed(self._children.values()))
         return children_list_reversed[key]
+
+    async def close(self) -> None:
+        await self.stop_children_handler_tasks()
+
+    @asynccontextmanager
+    async def keep_updated_in_context(self):
+        await self.start_children_handler_tasks()
+        yield self
+        await self.close()
