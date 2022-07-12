@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from asyncio import Future, Task
+from asyncio import CancelledError, Future, Task
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Coroutine, Dict, Optional, Set
+from types import TracebackType
+from typing import AsyncIterator, Coroutine, Dict, Optional, Set, Type
 
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
@@ -137,6 +138,27 @@ class _G3ServicesHandler:
     def _hostname(type_: str, name: str) -> str:
         return name[: len(name) - len(type_) - 1]
 
+    async def close(self):
+        for task in self._service_tasks:
+            task.cancel()
+        for task in self._service_tasks:
+            try:
+                await task
+            except CancelledError:
+                logger.debug("task in service_tasks cancelled")
+        self._service_tasks.clear()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ):
+        await self.close()
+
 
 class G3ServiceDiscovery:
     G3_SERVICE_TYPE_NAME = "_tobii-g3api._tcp.local."
@@ -151,20 +173,20 @@ class G3ServiceDiscovery:
     @asynccontextmanager
     async def connect(cls) -> AsyncIterator[G3ServiceDiscovery]:
         async with AsyncZeroconf() as async_zeroconf:
-            services_handler = _G3ServicesHandler()
-            zeroconf_listener = _ZeroconfListener(services_handler)
-            await async_zeroconf.async_add_service_listener(
-                cls.G3_SERVICE_TYPE_NAME, zeroconf_listener
-            )
-            try:
-                await asyncio.wait_for(services_handler.future_services, 3000)
-            except TimeoutError:
-                services_handler.future_services.set_result(dict())
-                logger.debug(
-                    "No Zeroconf services found before timeout. Services future resolved with empty dict."
+            async with _G3ServicesHandler() as services_handler:
+                zeroconf_listener = _ZeroconfListener(services_handler)
+                await async_zeroconf.async_add_service_listener(
+                    cls.G3_SERVICE_TYPE_NAME, zeroconf_listener
                 )
+                try:
+                    await asyncio.wait_for(services_handler.future_services, 3000)
+                except TimeoutError:
+                    services_handler.future_services.set_result(dict())
+                    logger.debug(
+                        "No Zeroconf services found before timeout. Services future resolved with empty dict."
+                    )
 
-            yield cls(async_zeroconf, services_handler)
+                yield cls(async_zeroconf, services_handler)
 
     @property
     def services_by_serial_number(self):

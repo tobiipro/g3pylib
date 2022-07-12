@@ -154,6 +154,7 @@ class G3WebSocketClientProtocol(
         self._event_loop = asyncio.get_running_loop()
         if subprotocols is None:
             subprotocols = self.DEFAULT_SUBPROTOCOLS
+        self._receiver_task = None
         # Type ignored since websockets has not typed this function as strictly as pyright wants
         super().__init__(subprotocols=subprotocols, **kwargs)  # type: ignore
         self._init_signal_subscription_handling()
@@ -254,3 +255,12 @@ class G3WebSocketClientProtocol(
     def generate_post_request(uri: URI, body: Optional[JSONObject] = None) -> JSONDict:
         """Generates a POST request."""
         return {"path": cast(str, uri), "method": "POST", "body": body}
+
+    async def close_g3(self):
+        if self._receiver_task is not None:
+            self._receiver_task.cancel()
+            try:
+                await self._receiver_task
+            except asyncio.CancelledError:
+                self.g3_logger.debug("receiver task cancelled")
+            self._receiver_task = None

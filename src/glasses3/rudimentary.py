@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from typing import Awaitable, Tuple, cast
 
 from glasses3 import utils
@@ -13,6 +14,7 @@ class Rudimentary(APIComponent):
         self._connection = connection
         self._streams_started = asyncio.Event()
         self.logger = logging.getLogger(__name__)
+        self._keepalive_task = None
         super().__init__(api_uri)
 
     async def get_event_sample(self) -> JSONObject:
@@ -92,13 +94,15 @@ class Rudimentary(APIComponent):
         await self._streams_started.wait()
 
     async def stop_streams(self) -> None:
-        self._keepalive_task.cancel()
-        try:
-            await self._keepalive_task
-        except asyncio.CancelledError:
-            self.logger.debug("keepalive task cancelled")
-        finally:
-            self._streams_started.clear()
+        if self._keepalive_task is not None:
+            self._keepalive_task.cancel()
+            try:
+                await self._keepalive_task
+            except asyncio.CancelledError:
+                self.logger.debug("keepalive task cancelled")
+            finally:
+                self._streams_started.clear()
+                self._keepalive_task = None
 
     async def calibrate(self) -> bool:
         return cast(
@@ -159,3 +163,12 @@ class Rudimentary(APIComponent):
         return await self._connection.subscribe_to_signal(
             self.generate_endpoint_uri(EndpointKind.SIGNAL, "sync-port")
         )
+
+    async def close(self) -> None:
+        await self.stop_streams()
+
+    @asynccontextmanager
+    async def keep_alive_in_context(self):
+        await self.start_streams()
+        yield
+        await self.close()
