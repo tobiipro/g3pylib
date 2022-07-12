@@ -56,7 +56,7 @@ async def test_scan_done_and_start_signals(g3: Glasses3):
     await unsubscribe_to_scan_done
 
 
-async def test_recordings_context_manager(g3: Glasses3):
+async def test_context_manager(g3: Glasses3):
     await g3.recorder.start()
     uuid = cast(str, await g3.recorder.get_uuid())
     await g3.recorder.stop()

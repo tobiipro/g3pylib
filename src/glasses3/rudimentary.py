@@ -164,11 +164,8 @@ class Rudimentary(APIComponent):
             self.generate_endpoint_uri(EndpointKind.SIGNAL, "sync-port")
         )
 
-    async def close(self) -> None:
-        await self.stop_streams()
-
     @asynccontextmanager
     async def keep_alive_in_context(self):
         await self.start_streams()
         yield
-        await self.close()
+        await self.stop_streams()
