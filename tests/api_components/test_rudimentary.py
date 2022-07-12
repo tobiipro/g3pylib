@@ -37,6 +37,16 @@ class TestStreamNotRunning:
     async def calibrate(g3: Glasses3):
         assert not await g3.rudimentary.calibrate()
 
+    @staticmethod
+    async def test_context_manager(g3: Glasses3):
+        print("testing")
+        async with g3.rudimentary.keep_alive_in_context():
+            await asyncio.sleep(0.1)
+            assert (
+                "timestamp"
+                in cast(dict[str, Any], await g3.rudimentary.get_gaze_sample()).keys()
+            )
+
 
 @pytest.mark.skip(
     reason="Slow test that needs only be run when other tests aren't working as expected."
