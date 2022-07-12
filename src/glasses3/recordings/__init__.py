@@ -165,11 +165,8 @@ class Recordings(APIComponent):
         children_list_reversed = list(reversed(self._children.values()))
         return children_list_reversed[key]
 
-    async def close(self) -> None:
-        await self.stop_children_handler_tasks()
-
     @asynccontextmanager
     async def keep_updated_in_context(self):
         await self.start_children_handler_tasks()
-        yield self
-        await self.close()
+        yield
+        await self.stop_children_handler_tasks()
