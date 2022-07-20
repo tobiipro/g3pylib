@@ -16,20 +16,6 @@ from glasses3.zeroconf.exceptions import ServiceDiscoveryError, ServiceEventErro
 logger = logging.getLogger(__name__)
 
 
-class _ZeroconfListener(ServiceListener):
-    def __init__(self, services_handler: _G3ServicesHandler):
-        self._services_handler = services_handler
-
-    def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self._services_handler.update_service(zc, type_, name)
-
-    def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self._services_handler.remove_service(type_, name)
-
-    def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self._services_handler.add_service(zc, type_, name)
-
-
 class G3Service:
     def __init__(self, service_info: AsyncServiceInfo) -> None:
         self._service_info = service_info
@@ -80,7 +66,7 @@ class G3Service:
         )
 
 
-class _G3ServicesHandler:
+class _G3ServicesHandler(ServiceListener):
     def __init__(self) -> None:
         self._service_tasks: Set[Task[None]] = set()
         self._future_services: Future[
@@ -102,7 +88,7 @@ class _G3ServicesHandler:
             self._add_or_update_service_task(zc, type_, name), f"update_service_{name}"
         )
 
-    def remove_service(self, type_: str, name: str):
+    def remove_service(self, zc: Zeroconf, type_: str, name: str):
         if not self._future_services.done():
             raise ServiceEventError(
                 "Remove service tried before any service was added."
@@ -171,15 +157,14 @@ class G3ServiceDiscovery:
 
     @classmethod
     @asynccontextmanager
-    async def connect(cls) -> AsyncIterator[G3ServiceDiscovery]:
+    async def listen(cls) -> AsyncIterator[G3ServiceDiscovery]:
         async with AsyncZeroconf() as async_zeroconf:
             async with _G3ServicesHandler() as services_handler:
-                zeroconf_listener = _ZeroconfListener(services_handler)
                 await async_zeroconf.async_add_service_listener(
-                    cls.G3_SERVICE_TYPE_NAME, zeroconf_listener
+                    cls.G3_SERVICE_TYPE_NAME, services_handler
                 )
                 try:
-                    await asyncio.wait_for(services_handler.future_services, 3000)
+                    await asyncio.wait_for(services_handler.future_services, 3)
                 except TimeoutError:
                     services_handler.future_services.set_result(dict())
                     logger.debug(
