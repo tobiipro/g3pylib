@@ -8,7 +8,7 @@ import dotenv
 from websockets.client import connect as websockets_connect
 
 import glasses3.websocket as g3_websocket
-from glasses3 import Glasses3
+from glasses3 import Glasses3, connect_to_glasses
 from glasses3.g3typing import URI, Hostname, JSONDict
 from glasses3.recordings.recording import Recording
 from glasses3.zeroconf import G3ServiceDiscovery
@@ -63,7 +63,7 @@ async def use_case_4():
 
 
 async def use_case_5():
-    async with Glasses3.connect(g3_hostname) as g3:
+    async with connect_to_glasses(g3_hostname) as g3:
         print(await g3.recorder.get_created())
 
 
@@ -80,7 +80,7 @@ async def use_case_signal():
 
 
 async def use_case_list_of_recordings():
-    async with Glasses3.connect(g3_hostname) as g3:
+    async with connect_to_glasses(g3_hostname) as g3:
         await g3.recordings.start_children_handler_tasks()
         print("Initial last 3 recordings: ")
         for recording in cast(List[Recording], g3.recordings[:3]):
@@ -102,7 +102,7 @@ async def use_case_list_of_recordings():
 
 
 async def use_case_rudimentary_streams():
-    async with Glasses3.connect(g3_hostname) as g3:
+    async with connect_to_glasses(g3_hostname) as g3:
         queue, unsubscribe = await g3.rudimentary.subscribe_to_gaze()
 
         async def task():
@@ -126,7 +126,7 @@ async def use_case_rudimentary_streams():
 
 
 async def use_case_crash_receiver_task():
-    async with Glasses3.connect(g3_hostname) as g3:
+    async with connect_to_glasses(g3_hostname) as g3:
         await g3.rudimentary.start_streams()
         assert await g3.rudimentary.send_event("my-tag", {"my-key": "my-value"})
 
@@ -149,14 +149,14 @@ async def use_case_crash_receiver_task():
 
 
 async def use_case_zeroconf():
-    async with G3ServiceDiscovery.connect() as gsd:
+    async with G3ServiceDiscovery.listen() as gsd:
         while True:
             print(gsd.services)
             await asyncio.sleep(10)
 
 
 async def handler():
-    await asyncio.gather(use_case_zeroconf())
+    await asyncio.gather(use_case_list_of_recordings())
 
 
 def main():

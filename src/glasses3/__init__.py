@@ -1,11 +1,12 @@
 """This is the g3pylib package root."""
 from __future__ import annotations
 
+from types import TracebackType
+
 __version__ = "0.1.0-alpha"
 
 import logging
-from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional, cast
+from typing import Optional, Type, cast
 
 import glasses3.websocket
 from glasses3.g3typing import URI, Hostname, LoggerLike
@@ -55,11 +56,31 @@ class Glasses3(APIComponent):
             self._system = System(self._connection, URI("/system"))
         return self._system
 
-    @classmethod
-    @asynccontextmanager
-    async def connect(cls, g3_hostname: Hostname) -> AsyncIterator[Glasses3]:
-        async with glasses3.websocket.connect(g3_hostname) as g3:
-            g3 = cast(G3WebSocketClientProtocol, g3)
-            g3.start_receiver_task()
-            yield cls(g3)
-            await g3.close_g3()
+    async def close(self):
+        await self._connection.close()
+
+
+class connect_to_glasses:
+    def __init__(self, g3_hostname: Hostname) -> None:
+        self.g3_hostname = g3_hostname
+
+    def __await__(self):
+        return self.__await_impl__().__await__()
+
+    async def __await_impl__(self):
+        connection = await glasses3.websocket.connect(self.g3_hostname)
+        connection = cast(G3WebSocketClientProtocol, connection)
+        connection.start_receiver_task()
+        self.connection = connection
+        return Glasses3(connection)
+
+    async def __aenter__(self) -> Glasses3:
+        return await self
+
+    async def __aexit__(
+        self,
+        exception_type: Optional[Type[BaseException]],
+        exception_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ):
+        await self.connection.close()

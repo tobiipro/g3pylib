@@ -256,7 +256,7 @@ class G3WebSocketClientProtocol(
         """Generates a POST request."""
         return {"path": cast(str, uri), "method": "POST", "body": body}
 
-    async def close_g3(self):
+    async def close(self, code: int = 1000, reason: str = ""):
         if self._receiver_task is not None:
             self._receiver_task.cancel()
             try:
@@ -264,3 +264,4 @@ class G3WebSocketClientProtocol(
             except asyncio.CancelledError:
                 self.g3_logger.debug("receiver task cancelled")
             self._receiver_task = None
+        await super().close(code, reason)
