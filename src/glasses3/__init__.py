@@ -1,25 +1,24 @@
 """This is the g3pylib package root."""
 from __future__ import annotations
 
-from types import TracebackType
-
-from glasses3.calibrate import Calibrate
-
-__version__ = "0.1.0-alpha"
-
 import logging
+from types import TracebackType
 from typing import Optional, Type, cast
 
 import glasses3.websocket
+from glasses3.calibrate import Calibrate
 from glasses3.g3typing import URI, LoggerLike
 from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
 from glasses3.rudimentary import Rudimentary
 from glasses3.settings import Settings
+from glasses3.streams import Streams
 from glasses3.system import System
 from glasses3.utils import APIComponent
 from glasses3.websocket import G3WebSocketClientProtocol
 from glasses3.zeroconf import G3Service, G3ServiceDiscovery
+
+__version__ = "0.1.0-alpha"
 
 
 class Glasses3(APIComponent):
