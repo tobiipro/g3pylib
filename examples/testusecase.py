@@ -155,8 +155,14 @@ async def use_case_zeroconf():
             await asyncio.sleep(10)
 
 
+async def use_case_auto_connect():
+    async with connect_to_glasses() as g3:
+        async with g3.recordings.keep_updated_in_context():
+            print(cast(Recording, g3.recordings[0]).uuid)
+
+
 async def handler():
-    await asyncio.gather(use_case_list_of_recordings())
+    await asyncio.gather(use_case_auto_connect())
 
 
 def main():
