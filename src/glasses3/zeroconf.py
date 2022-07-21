@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from asyncio import CancelledError, Future, Task
 from contextlib import asynccontextmanager
+from enum import Enum, auto
 from types import TracebackType
-from typing import AsyncIterator, Coroutine, Dict, Optional, Set, Type
+from typing import AsyncIterator, Dict, Optional, Tuple, Type
 
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from glasses3 import utils
-from glasses3.zeroconf.exceptions import ServiceDiscoveryError, ServiceEventError
 
 logger = logging.getLogger(__name__)
 
@@ -66,73 +65,76 @@ class G3Service:
         )
 
 
+class EventKind(Enum):
+    ADDED = auto()
+    REMOVED = auto()
+    UPDATED = auto()
+
+
 class _G3ServicesHandler(ServiceListener):
-    def __init__(self) -> None:
-        self._service_tasks: Set[Task[None]] = set()
-        self._future_services: Future[
-            Dict[str, G3Service]
-        ] = asyncio.get_running_loop().create_future()
+    def __init__(self, zc: Zeroconf) -> None:
+        self.zc = zc
+        self._services: Dict[str, G3Service] = dict()
+        self._events: asyncio.Queue[Tuple[EventKind, G3Service]] = asyncio.Queue()
+        self._unhandled_events: asyncio.Queue[
+            Tuple[EventKind, G3Service]
+        ] = asyncio.Queue()
+        self.service_handler_task = utils.create_task(
+            self.service_handler(), name="service_handler"
+        )
 
     @property
     def services(self):
-        return self._future_services.result()
+        return self._services
 
     @property
-    def future_services(self):
-        return self._future_services
+    def events(self):
+        return self._events
 
     def update_service(self, zc: Zeroconf, type_: str, name: str):
-
         logger.debug(f"The service {name} is updated")
-        self._create_service_task(
-            self._add_or_update_service_task(zc, type_, name), f"update_service_{name}"
+        self._unhandled_events.put_nowait(
+            (EventKind.UPDATED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
     def remove_service(self, zc: Zeroconf, type_: str, name: str):
-        if not self._future_services.done():
-            raise ServiceEventError(
-                "Remove service tried before any service was added."
-            )
         logger.debug(f"The service {name} is removed")
-        del self.services[self._hostname(type_, name)]
+        self._unhandled_events.put_nowait(
+            (EventKind.REMOVED, G3Service(AsyncServiceInfo(type_, name)))
+        )
 
     def add_service(self, zc: Zeroconf, type_: str, name: str):
         logger.debug(f"The service {name} is added")
-        self._create_service_task(
-            self._add_or_update_service_task(zc, type_, name), f"add_service_{name}"
+        self._unhandled_events.put_nowait(
+            (EventKind.ADDED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
-    async def _add_or_update_service_task(self, zc: Zeroconf, type_: str, name: str):
-        if not self._future_services.done():
-            self._future_services.set_result(dict())
-        hostname = self._hostname(type_, name)
-        if hostname in self.services:
-            success = await self.services[hostname].service_info.async_request(zc, 3000)
-        else:
-            service_info = AsyncServiceInfo(type_, name)
-            success = await service_info.async_request(zc, 3000)
-            self.services[hostname] = G3Service(service_info)
-        if not success:
-            raise ServiceDiscoveryError(f"Service with name {name} was not discovered.")
-
-    def _create_service_task(self, coro: Coroutine[None, None, None], name: str):
-        task = utils.create_task(coro, name=name)
-        self._service_tasks.add(task)
-        task.add_done_callback(self._service_tasks.discard)
+    async def service_handler(self):
+        while True:
+            event = await self._unhandled_events.get()
+            match event:
+                case (EventKind.ADDED, service):
+                    await service.service_info.async_request(self.zc, 3000)
+                    self._services[service.hostname] = service
+                    await asyncio.shield(self._events.put(event))
+                case (EventKind.UPDATED, service):
+                    service = self.services[service.hostname]
+                    await asyncio.shield(
+                        service.service_info.async_request(self.zc, 3000)
+                    )
+                    await asyncio.shield(self._events.put((EventKind.UPDATED, service)))
+                case (EventKind.REMOVED, service):
+                    del self.services[service.hostname]
+                    await asyncio.shield(self._events.put(event))
+                case _:
+                    pass
 
     @staticmethod
     def _hostname(type_: str, name: str) -> str:
         return name[: len(name) - len(type_) - 1]
 
     async def close(self):
-        for task in self._service_tasks:
-            task.cancel()
-        for task in self._service_tasks:
-            try:
-                await task
-            except CancelledError:
-                logger.debug("task in service_tasks cancelled")
-        self._service_tasks.clear()
+        self.service_handler_task.cancel()
 
     async def __aenter__(self):
         return self
@@ -159,18 +161,10 @@ class G3ServiceDiscovery:
     @asynccontextmanager
     async def listen(cls) -> AsyncIterator[G3ServiceDiscovery]:
         async with AsyncZeroconf() as async_zeroconf:
-            async with _G3ServicesHandler() as services_handler:
+            async with _G3ServicesHandler(async_zeroconf.zeroconf) as services_handler:
                 await async_zeroconf.async_add_service_listener(
                     cls.G3_SERVICE_TYPE_NAME, services_handler
                 )
-                try:
-                    await asyncio.wait_for(services_handler.future_services, 3)
-                except TimeoutError:
-                    services_handler.future_services.set_result(dict())
-                    logger.debug(
-                        "No Zeroconf services found before timeout. Services future resolved with empty dict."
-                    )
-
                 yield cls(async_zeroconf, services_handler)
 
     @property
@@ -178,5 +172,29 @@ class G3ServiceDiscovery:
         return self._services_handler.services
 
     @property
+    def events(self):
+        return self._services_handler.events
+
+    @property
     def services(self):
         return list(self._services_handler.services.values())
+
+    @staticmethod
+    async def wait_for_single_service(
+        events: asyncio.Queue[Tuple[EventKind, G3Service]],
+        ip_version: IPVersion = IPVersion.All,
+    ):
+        while True:
+            event = await events.get()
+            if event[0] in [EventKind.UPDATED, EventKind.ADDED]:
+                service = event[1]
+                match ip_version:
+                    case IPVersion.All:
+                        if service.ipv4_address and service.ipv6_address:
+                            return service
+                    case IPVersion.V4Only:
+                        if service.ipv4_address:
+                            return service
+                    case IPVersion.V6Only:
+                        if service.ipv6_address:
+                            return service
