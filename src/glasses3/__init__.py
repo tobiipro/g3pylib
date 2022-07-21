@@ -16,6 +16,7 @@ from glasses3.rudimentary import Rudimentary
 from glasses3.system import System
 from glasses3.utils import APIComponent
 from glasses3.websocket import G3WebSocketClientProtocol
+from glasses3.zeroconf import G3Service, G3ServiceDiscovery
 
 
 class Glasses3(APIComponent):
@@ -61,13 +62,27 @@ class Glasses3(APIComponent):
 
 
 class connect_to_glasses:
-    def __init__(self, g3_hostname: Hostname) -> None:
+    def __init__(
+        self,
+        g3_hostname: Optional[Hostname] = None,
+        service: Optional[G3Service] = None,
+    ) -> None:
         self.g3_hostname = g3_hostname
+        self.service = service
 
     def __await__(self):
         return self.__await_impl__().__await__()
 
     async def __await_impl__(self):
+        if not self.g3_hostname and not self.service:
+            async with G3ServiceDiscovery.listen() as service_discovery:
+                self.service = await service_discovery.wait_for_single_service(
+                    service_discovery.events
+                )
+
+        if not self.g3_hostname:
+            self.g3_hostname = cast(Hostname, cast(G3Service, self.service).hostname)
+
         connection = await glasses3.websocket.connect(self.g3_hostname)
         connection = cast(G3WebSocketClientProtocol, connection)
         connection.start_receiver_task()
