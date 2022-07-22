@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Optional, Type, cast
+from typing import AsyncIterator, Optional, Type, cast
 
 import glasses3.websocket
 from glasses3.calibrate import Calibrate
@@ -72,6 +73,20 @@ class Glasses3(APIComponent):
         if self._settings is None:
             self._settings = Settings(self._connection, URI("/settings"))
         return self._settings
+
+    @asynccontextmanager
+    async def stream_rtsp(
+        self,
+        scene_camera: bool = True,
+        audio: bool = False,
+        eye_cameras: bool = False,
+        gaze: bool = False,
+        sync: bool = False,
+        imu: bool = False,
+        events: bool = False,
+    ) -> AsyncIterator[Streams]:
+        async with Streams.connect_using_g3(self) as streams:
+            yield streams
 
     async def close(self):
         await self._connection.close()
