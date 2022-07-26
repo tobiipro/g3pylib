@@ -161,21 +161,38 @@ class G3App(App, ScreenManager):
             while True:
                 await self.handle_service_event(await service_listener.events.get())
 
-    async def handle_service_event(
-        self, event: Tuple[EventKind, G3Service]
-    ):  # TODO: handle remove/update service
+    async def handle_service_event(self, event: Tuple[EventKind, G3Service]):
         match event:
             case (EventKind.ADDED, service):
                 self.add_service(
                     service.hostname, service.ipv4_address, service.ipv6_address
                 )
-            case _:
-                pass
+            case (EventKind.UPDATED, service):
+                self.update_service(
+                    service.hostname, service.ipv4_address, service.ipv6_address
+                )
+            case (EventKind.REMOVED, service):
+                self.remove_service(
+                    service.hostname, service.ipv4_address, service.ipv6_address
+                )
 
     def add_service(self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]):
         self.screen_by_name["discovery"].ids.services.data.append(
-            {"text": f"{hostname}\n{ipv4}\n{ipv6}"}
+            {"id": hostname, "text": f"{hostname}\n{ipv4}\n{ipv6}"}
         )
+
+    def update_service(self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]):
+        data_list = self.screen_by_name["discovery"].ids.services.data
+        for service in data_list:
+            if service["id"] == hostname:
+                service["text"] = f"{hostname}\n{ipv4}\n{ipv6}"
+
+    def remove_service(self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]):
+        self.screen_by_name["discovery"].ids.services.data = [
+            service
+            for service in self.screen_by_name["discovery"].ids.services.data
+            if service["id"] != hostname
+        ]
 
     def create_task(self, coro, name=None) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
