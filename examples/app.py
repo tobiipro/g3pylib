@@ -14,6 +14,7 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.screenmanager import Screen, ScreenManager
 
+from controleventkind import ControlEventKind
 from glasses3 import Glasses3, connect_to_glasses
 from glasses3.g3typing import Hostname, SignalBody
 from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
@@ -26,6 +27,7 @@ g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
 # fmt: off
 Builder.load_string("""
 #:import NoTransition kivy.uix.screenmanager.NoTransition
+#:import ControlEventKind controleventkind.ControlEventKind
 
 <DiscoveryScreen>:
     BoxLayout:
@@ -65,10 +67,13 @@ Builder.load_string("""
                 text: "Status:"
             Button:
                 text: "Start"
-                on_press: app.send_control_event("record")
+                on_press: app.send_control_event(ControlEventKind.START_RECORDING)
             Button:
                 text: "Stop"
-                on_press: app.send_control_event("stop")
+                on_press: app.send_control_event(ControlEventKind.STOP_RECORDING)
+            Button:
+                text: "Delete"
+                on_press: app.send_control_event(ControlEventKind.DELETE_RECORDING)
         SelectableList:
             id: recordings
 
@@ -189,9 +194,13 @@ class G3App(App, ScreenManager):
     def recorder_screen_add_recording(self, recording, atEnd=False):
         recorder_screen = self.control_sm.screen_by_name["recorder"]
         if atEnd == True:
-            recorder_screen.ids.recordings.data.append({"text": str(recording)})
+            recorder_screen.ids.recordings.data.append(
+                {"text": str(recording), "uuid": str(recording)}
+            )
         else:
-            recorder_screen.ids.recordings.data.insert(0, {"text": str(recording)})
+            recorder_screen.ids.recordings.data.insert(
+                0, {"text": str(recording), "uuid": str(recording)}
+            )
 
     def recorder_screen_remove_recording(self, recording):
         recorder_screen = self.control_sm.screen_by_name["recorder"]
@@ -279,12 +288,24 @@ class G3App(App, ScreenManager):
                     await self.handle_control_event(g3, await self.control_events.get())
 
     async def handle_control_event(self, g3: Glasses3, event: str):
-        print(event)
         match event:
-            case "record":
+            case ControlEventKind.START_RECORDING:
                 await g3.recorder.start()
-            case "stop":
+            case ControlEventKind.STOP_RECORDING:
                 await g3.recorder.stop()
+            case ControlEventKind.DELETE_RECORDING:
+                selected = self.control_sm.screen_by_name[
+                    "recorder"
+                ].ids.recordings.ids.selectables.selected_nodes
+                if len(selected) != 1:
+                    print(
+                        "Please select one recording before attempting delete."
+                    )  # TODO: print in gui
+                else:
+                    uuid = self.control_sm.screen_by_name[
+                        "recorder"
+                    ].ids.recordings.data[selected[0]]["uuid"]
+                    await g3.recordings.delete(uuid)
 
     async def start_update_recorder_status(self, g3: Glasses3):
         if await g3.recorder.get_created() != None:
