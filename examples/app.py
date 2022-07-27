@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 import dotenv
 from kivy.app import App
@@ -17,6 +17,7 @@ from kivy.uix.screenmanager import Screen, ScreenManager
 from controleventkind import ControlEventKind
 from glasses3 import Glasses3, connect_to_glasses
 from glasses3.g3typing import Hostname, SignalBody
+from glasses3.recordings.recording import Recording
 from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
@@ -163,6 +164,26 @@ class G3App(App, ScreenManager):
         self.screen_by_name: Dict[str, Screen] = dict()
         self.control_events = asyncio.Queue()
 
+        self.screen_by_name["discovery"] = DiscoveryScreen(name="discovery")
+        self.screen_by_name["control"] = ControlScreen(name="control")
+        self.add_widget(self.screen_by_name["discovery"])
+        self.add_widget(self.screen_by_name["control"])
+
+        self.control_screen = self.screen_by_name["control"]
+        self.control_screen.ids.sm.screen_by_name = dict()
+        self.control_sm = self.control_screen.ids.sm
+
+        self.control_sm.screen_by_name["recorder"] = RecorderScreen(name="recorder")
+        self.control_sm.screen_by_name["live"] = LiveScreen(name="live")
+        self.control_sm.add_widget(self.control_sm.screen_by_name["recorder"])
+        self.control_sm.add_widget(self.control_sm.screen_by_name["live"])
+
+    def build(self):
+        return self
+
+    def on_start(self):
+        self.create_task(self.backend_discovery())
+
     def connect(self):
         selected = self.screen_by_name[
             "discovery"
@@ -185,58 +206,36 @@ class G3App(App, ScreenManager):
 
     def clear_control_screen(self):
         self.control_screen.ids.sm.screen_by_name["recorder"].ids.recordings.data = []
+        self.control_sm.screen_by_name["recorder"].ids.recorder_status.text = "Status:"
 
     def switch_control_screen_to(self, screen: str):
         self.control_screen.ids.sm.switch_to(
             self.control_screen.ids.sm.screen_by_name[screen]
         )
 
-    def recorder_screen_add_recording(self, recording, atEnd=False):
-        recorder_screen = self.control_sm.screen_by_name["recorder"]
+    def recorder_screen_add_recording(
+        self, visible_name: str, uuid: str, recording: Recording, atEnd=False
+    ):
+        recordings = self.control_sm.screen_by_name["recorder"].ids.recordings
+        recording_data = {"text": visible_name, "uuid": uuid, "recording": recording}
         if atEnd == True:
-            recorder_screen.ids.recordings.data.append(
-                {"text": str(recording), "uuid": str(recording)}
-            )
+            recordings.data.append(recording_data)
         else:
-            recorder_screen.ids.recordings.data.insert(
-                0, {"text": str(recording), "uuid": str(recording)}
-            )
+            recordings.data.insert(0, recording_data)
 
-    def recorder_screen_remove_recording(self, recording):
-        recorder_screen = self.control_sm.screen_by_name["recorder"]
-        recorder_screen.ids.recordings.data = [
-            recording_data
-            for recording_data in recorder_screen.ids.recordings.data
-            if recording_data["text"] != recording
-        ]
+    def recorder_screen_remove_recording(self, uuid):
+        recordings = self.control_sm.screen_by_name["recorder"].ids.recordings
+        recordings.data = [rec for rec in recordings.data if rec["uuid"] != uuid]
 
     def recorder_screen_set_recording(self):
-        recorder_screen = self.control_sm.screen_by_name["recorder"]
-        recorder_screen.ids.recorder_status.text = "Status: Recording"
+        self.control_sm.screen_by_name[
+            "recorder"
+        ].ids.recorder_status.text = "Status: Recording"
 
     def recorder_screen_set_not_recording(self):
-        recorder_screen = self.control_sm.screen_by_name["recorder"]
-        recorder_screen.ids.recorder_status.text = "Status: Not recording"
-
-    def build(self):
-        self.screen_by_name["discovery"] = DiscoveryScreen(name="discovery")
-        self.screen_by_name["control"] = ControlScreen(name="control")
-        self.add_widget(self.screen_by_name["discovery"])
-        self.add_widget(self.screen_by_name["control"])
-
-        self.control_screen = self.screen_by_name["control"]
-        self.control_screen.ids.sm.screen_by_name = dict()
-        self.control_sm = self.control_screen.ids.sm
-
-        self.control_sm.screen_by_name["recorder"] = RecorderScreen(name="recorder")
-        self.control_sm.screen_by_name["live"] = LiveScreen(name="live")
-        self.control_sm.add_widget(self.control_sm.screen_by_name["recorder"])
-        self.control_sm.add_widget(self.control_sm.screen_by_name["live"])
-
-        return self
-
-    def on_start(self):
-        self.create_task(self.backend_discovery())
+        self.control_sm.screen_by_name[
+            "recorder"
+        ].ids.recorder_status.text = "Status: Not recording"
 
     async def backend_discovery(self):
         async with G3ServiceDiscovery.listen() as service_listener:
@@ -264,16 +263,15 @@ class G3App(App, ScreenManager):
         )
 
     def update_service(self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]):
-        data_list = self.screen_by_name["discovery"].ids.services.data
-        for service in data_list:
+        services = self.screen_by_name["discovery"].ids.services
+        for service in services.data:
             if service["id"] == hostname:
                 service["text"] = f"{hostname}\n{ipv4}\n{ipv6}"
 
     def remove_service(self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]):
-        self.screen_by_name["discovery"].ids.services.data = [
-            service
-            for service in self.screen_by_name["discovery"].ids.services.data
-            if service["id"] != hostname
+        services = self.screen_by_name["discovery"].ids.services
+        services.data = [
+            service for service in services.data if service["id"] != hostname
         ]
 
     def send_control_event(self, event: str):
@@ -294,18 +292,22 @@ class G3App(App, ScreenManager):
             case ControlEventKind.STOP_RECORDING:
                 await g3.recorder.stop()
             case ControlEventKind.DELETE_RECORDING:
-                selected = self.control_sm.screen_by_name[
-                    "recorder"
-                ].ids.recordings.ids.selectables.selected_nodes
-                if len(selected) != 1:
-                    print(
-                        "Please select one recording before attempting delete."
-                    )  # TODO: print in gui
-                else:
-                    uuid = self.control_sm.screen_by_name[
-                        "recorder"
-                    ].ids.recordings.data[selected[0]]["uuid"]
-                    await g3.recordings.delete(uuid)
+                await self.delete_selected_recording(g3)
+
+    async def delete_selected_recording(self, g3: Glasses3):
+        selected = self.control_sm.screen_by_name[
+            "recorder"
+        ].ids.recordings.ids.selectables.selected_nodes
+        if len(selected) != 1:
+            print(
+                "Please select one recording before attempting delete."
+            )  # TODO: print in gui
+        else:
+            uuid = self.control_sm.screen_by_name["recorder"].ids.recordings.data[
+                selected[0]
+            ]["uuid"]
+            print(uuid)
+            await g3.recordings.delete(uuid)
 
     async def start_update_recorder_status(self, g3: Glasses3):
         if await g3.recorder.get_created() != None:
@@ -349,8 +351,10 @@ class G3App(App, ScreenManager):
         self.handle_recorder_stopped_task.cancel()
 
     async def start_update_recordings(self, g3: Glasses3):
-        for child in g3.recordings:
-            self.recorder_screen_add_recording(child.uuid, atEnd=True)
+        for child in cast(List[Recording], g3.recordings):
+            self.recorder_screen_add_recording(
+                await child.get_visible_name(), child.uuid, child, atEnd=True
+            )
         (
             child_added_queue,
             self.unsubscribe_to_child_added,
@@ -362,13 +366,18 @@ class G3App(App, ScreenManager):
 
         async def handle_added_recordings(child_added_queue):
             while True:
-                recording = (await child_added_queue.get())[0]
-                self.recorder_screen_add_recording(recording)
+                uuid = (await child_added_queue.get())[0]
+                recording = g3.recordings._children[
+                    uuid
+                ]  # add get_child(uuid) in recordings
+                self.recorder_screen_add_recording(
+                    await recording.get_visible_name(), recording.uuid, recording
+                )
 
         async def handle_removed_recordings(child_removed_queue):
             while True:
-                recording = (await child_removed_queue.get())[0]
-                self.recorder_screen_remove_recording(recording)
+                uuid = (await child_removed_queue.get())[0]
+                self.recorder_screen_remove_recording(uuid)
 
         self.handle_added_recordings_task = self.create_task(
             handle_added_recordings(child_added_queue)
