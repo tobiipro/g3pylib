@@ -320,11 +320,26 @@ class G3App(App, ScreenManager):
             recorder_stopped_queue,
             self.unsubscribe_to_recorder_stopped,
         ) = await g3.recorder.subscribe_to_stopped()
+
+        async def handle_recorder_started(
+            recorder_started_queue: asyncio.Queue[SignalBody],
+        ):
+            while True:
+                await recorder_started_queue.get()
+                self.recorder_screen_set_recording()
+
+        async def handle_recorder_stopped(
+            recorder_stopped_queue: asyncio.Queue[SignalBody],
+        ):
+            while True:
+                await recorder_stopped_queue.get()
+                self.recorder_screen_set_not_recording()
+
         self.handle_recorder_started_task = self.create_task(
-            self.handle_recorder_started(recorder_started_queue)
+            handle_recorder_started(recorder_started_queue)
         )
         self.handle_recorder_stopped_task = self.create_task(
-            self.handle_recorder_stopped(recorder_stopped_queue)
+            handle_recorder_stopped(recorder_stopped_queue)
         )
 
     async def stop_update_recorder_status(self):
@@ -332,20 +347,6 @@ class G3App(App, ScreenManager):
         await self.unsubscribe_to_recorder_stopped
         self.handle_recorder_started_task.cancel()
         self.handle_recorder_stopped_task.cancel()
-
-    async def handle_recorder_started(
-        self, recorder_started_queue: asyncio.Queue[SignalBody]
-    ):
-        while True:
-            await recorder_started_queue.get()
-            self.recorder_screen_set_recording()
-
-    async def handle_recorder_stopped(
-        self, recorder_stopped_queue: asyncio.Queue[SignalBody]
-    ):
-        while True:
-            await recorder_stopped_queue.get()
-            self.recorder_screen_set_not_recording()
 
     async def start_update_recordings(self, g3: Glasses3):
         for child in g3.recordings:
@@ -358,11 +359,22 @@ class G3App(App, ScreenManager):
             child_removed_queue,
             self.unsubscribe_to_child_removed,
         ) = await g3.recordings.subscribe_to_child_removed()
+
+        async def handle_added_recordings(child_added_queue):
+            while True:
+                recording = (await child_added_queue.get())[0]
+                self.recorder_screen_add_recording(recording)
+
+        async def handle_removed_recordings(child_removed_queue):
+            while True:
+                recording = (await child_removed_queue.get())[0]
+                self.recorder_screen_remove_recording(recording)
+
         self.handle_added_recordings_task = self.create_task(
-            self.handle_added_recordings(child_added_queue)
+            handle_added_recordings(child_added_queue)
         )
         self.handle_removed_recordings_task = self.create_task(
-            self.handle_removed_recordings(child_removed_queue)
+            handle_removed_recordings(child_removed_queue)
         )
 
     async def stop_update_recordings(self):
@@ -370,16 +382,6 @@ class G3App(App, ScreenManager):
         await self.unsubscribe_to_child_removed
         self.handle_added_recordings_task.cancel()
         self.handle_removed_recordings_task.cancel()
-
-    async def handle_added_recordings(self, child_added_queue):
-        while True:
-            recording = (await child_added_queue.get())[0]
-            self.recorder_screen_add_recording(recording)
-
-    async def handle_removed_recordings(self, child_removed_queue):
-        while True:
-            recording = (await child_removed_queue.get())[0]
-            self.recorder_screen_remove_recording(recording)
 
     def create_task(self, coro, name=None) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
