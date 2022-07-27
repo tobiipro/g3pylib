@@ -14,6 +14,7 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.screenmanager import Screen, ScreenManager
 
+from glasses3 import Glasses3, connect_to_glasses
 from glasses3.g3typing import Hostname
 from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
@@ -22,29 +23,48 @@ logging.basicConfig(level=logging.DEBUG)
 dotenv.load_dotenv()  # type: ignore
 g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
 
-Builder.load_string(
-    """
+# fmt: off
+Builder.load_string("""
 <DiscoveryScreen>:
     BoxLayout:
         ServicesList:
             id: services
         Button:
-            text: "Press me"
+            text: "Connect"
             on_press: app.connect()
 
 <ControlScreen>:
     BoxLayout:
         orientation: 'vertical'
-        Button:
-            text: "menu"
-            on_press: app.switch_control_screen_to("live")
+        BoxLayout:
+            size_hint: 1, None
+            height: dp(50)
+            Button:
+                text: "Recorder"
+                on_press: app.switch_control_screen_to("recorder")
+            Button:
+                text: "Live"
+                on_press: app.switch_control_screen_to("live")
+            Button:
+                background_color: (0.6, 0.6, 1, 1)
+                text: "Disconnect"
+                on_press:
+                    app.disconnect()
         ScreenManager:
             id: sm
 
 <RecorderScreen>:
     BoxLayout:
-        Label:
-            text: "Here you can control your glasses."
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                text: "Here you can control your glasses."
+            Button:
+                text: "Start"
+                on_press: app.send_control_event("record")
+            Button:
+                text: "Stop"
+                on_press: app.send_control_event("stop")
 
 <LiveScreen>:
     BoxLayout:
@@ -54,6 +74,7 @@ Builder.load_string(
 <ServicesList>:
     viewclass: 'SelectableLabel'
     SelectableRecycleBoxLayout:
+        id: selectables
         default_size: None, dp(70)
         default_size_hint: 1, None
         size_hint_y: None
@@ -69,6 +90,7 @@ Builder.load_string(
             size: self.size
 """
 )
+# fmt: on
 
 
 class SelectableRecycleBoxLayout(LayoutSelectionBehavior, RecycleBoxLayout):
@@ -128,9 +150,25 @@ class G3App(App, ScreenManager):
         super().__init__(**kwargs)
         self.tasks = set()
         self.screen_by_name: Dict[str, Screen] = dict()
+        self.control_events = asyncio.Queue()
 
     def connect(self):
-        self.switch_to(self.screen_by_name["control"])
+        selectables = self.screen_by_name[
+            "discovery"
+        ].ids.services.ids.selectables.selected_nodes
+        if len(selectables) <= 0:
+            print("Please choose a Glasses3 unit to connect.")
+        else:
+            hostname = self.screen_by_name["discovery"].ids.services.data[
+                selectables[0]
+            ]["id"]
+            print(hostname)
+            self.backend_control_task = self.create_task(self.backend_control(hostname))
+            self.switch_to(self.screen_by_name["control"], direction="left")
+
+    def disconnect(self):
+        self.backend_control_task.cancel()
+        self.switch_to(self.screen_by_name["discovery"], direction="right")
 
     def switch_control_screen_to(self, screen: str):
         self.control_screen.ids.sm.switch_to(
@@ -154,9 +192,9 @@ class G3App(App, ScreenManager):
         return self
 
     def on_start(self):
-        self.create_task(self.backend())
+        self.create_task(self.backend_discovery())
 
-    async def backend(self):
+    async def backend_discovery(self):
         async with G3ServiceDiscovery.listen() as service_listener:
             while True:
                 await self.handle_service_event(await service_listener.events.get())
@@ -193,6 +231,23 @@ class G3App(App, ScreenManager):
             for service in self.screen_by_name["discovery"].ids.services.data
             if service["id"] != hostname
         ]
+
+    def send_control_event(self, event: str):
+        self.control_events.put_nowait(event)
+
+    async def backend_control(self, hostname):
+        async with connect_to_glasses(hostname) as g3:
+            async with g3.recordings.keep_updated_in_context():
+                while True:
+                    await self.handle_control_event(g3, await self.control_events.get())
+
+    async def handle_control_event(self, g3: Glasses3, event: str):
+        print(event)
+        match event:
+            case "record":
+                await g3.recorder.start()
+            case "stop":
+                await g3.recorder.stop()
 
     def create_task(self, coro, name=None) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
