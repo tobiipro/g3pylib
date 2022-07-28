@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from types import TracebackType
 
+from glasses3.calibrate import Calibrate
+
 __version__ = "0.1.0-alpha"
 
 import logging
@@ -32,6 +34,13 @@ class Glasses3(APIComponent):
         self._recordings: Optional[Recordings] = None
         self._rudimentary: Optional[Rudimentary] = None
         self._system: Optional[System] = None
+        self._calibrate: Optional[Calibrate] = None
+
+    @property
+    def calibrate(self):
+        if self._calibrate is None:
+            self._calibrate = Calibrate(self._connection, URI("/calibrate"))
+        return self._calibrate
 
     @property
     def recorder(self):
