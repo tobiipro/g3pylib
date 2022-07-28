@@ -116,10 +116,12 @@ class Recordings(APIComponent):
                 self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-removed")
             )
             self._handle_child_added_task = utils.create_task(
-                handle_child_added_task(added_children_queue)
+                handle_child_added_task(added_children_queue),
+                name=handle_child_added_task,
             )
             self._handle_child_removed_task = utils.create_task(
-                handle_child_removed_task(removed_children_queue)
+                handle_child_removed_task(removed_children_queue),
+                name=handle_child_removed_task,
             )
         else:
             self.logger.warning(

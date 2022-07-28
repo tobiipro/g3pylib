@@ -90,7 +90,9 @@ class Rudimentary(APIComponent):
                     )
                 await asyncio.sleep(5)
 
-        self._keepalive_task = utils.create_task(keepalive_task())
+        self._keepalive_task = utils.create_task(
+            keepalive_task(), name="keepalive_task"
+        )
         await self._streams_started.wait()
 
     async def stop_streams(self) -> None:
