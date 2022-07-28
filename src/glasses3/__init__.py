@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Type, cast
 
 import glasses3.websocket
-from glasses3.g3typing import URI, Hostname, LoggerLike
+from glasses3.g3typing import URI, LoggerLike
 from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
 from glasses3.rudimentary import Rudimentary
@@ -81,7 +81,7 @@ class Glasses3(APIComponent):
 class connect_to_glasses:
     def __init__(
         self,
-        g3_hostname: Optional[Hostname] = None,
+        g3_hostname: Optional[str] = None,
         service: Optional[G3Service] = None,
     ) -> None:
         self.g3_hostname = g3_hostname
@@ -98,7 +98,7 @@ class connect_to_glasses:
                 )
 
         if not self.g3_hostname:
-            self.g3_hostname = cast(Hostname, cast(G3Service, self.service).hostname)
+            self.g3_hostname = cast(G3Service, self.service).hostname
 
         connection = await glasses3.websocket.connect(self.g3_hostname)
         connection = cast(G3WebSocketClientProtocol, connection)

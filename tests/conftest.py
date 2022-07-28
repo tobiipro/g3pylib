@@ -5,9 +5,8 @@ from typing import AsyncIterable
 import pytest
 
 from glasses3 import Glasses3, connect_to_glasses
-from glasses3.g3typing import Hostname
 
-g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
+g3_hostname = os.environ["G3_HOSTNAME"]
 
 
 @pytest.fixture(scope="module")

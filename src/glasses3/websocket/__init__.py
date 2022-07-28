@@ -16,7 +16,6 @@ from websockets.typing import Subprotocol
 from glasses3 import utils
 from glasses3.g3typing import (
     URI,
-    Hostname,
     JSONDict,
     JSONObject,
     MessageId,
@@ -34,7 +33,7 @@ DEFAULT_WEBSOCKET_URI = URI("/websocket")
 
 
 def connect(
-    g3_hostname: Hostname, websocket_uri: URI = DEFAULT_WEBSOCKET_URI
+    g3_hostname: str, websocket_uri: URI = DEFAULT_WEBSOCKET_URI
 ) -> websockets.legacy.client.Connect:
     """Sets up a websocket connection with a Glasses3 device.
 
