@@ -157,6 +157,9 @@ class Recordings(APIComponent):
         """This property is not recommended for use since the object itself has functionality of a list. See `__iter__` and `__getitem__` methods."""
         return list(reversed(self._children.values()))
 
+    def get_recording(self, uuid: str) -> Recording:
+        return self._children[uuid]
+
     def __iter__(self) -> Iterable[Recording]:
         yield from reversed(self._children.values())
 
