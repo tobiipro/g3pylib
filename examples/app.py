@@ -237,7 +237,7 @@ class G3App(App, ScreenManager):
         return self
 
     def on_start(self):
-        self.create_task(self.backend_discovery())
+        self.create_task(self.backend_discovery(), name="backend_discovery")
 
     def connect(self) -> None:
         selected = self.get_screen(
@@ -247,15 +247,19 @@ class G3App(App, ScreenManager):
             print("Please choose a Glasses3 unit to connect.")  # TODO: print in gui
         else:
             hostname = self.get_screen("discovery").ids.services.data[selected[0]]["id"]
-            self.backend_control_task = self.create_task(self.backend_control(hostname))
+            self.backend_control_task = self.create_task(
+                self.backend_control(hostname), name="backend_control"
+            )
             self.get_screen("control").set_hostname(hostname)
             self.transition.direction = "left"
             self.current = "control"
 
     def disconnect(self) -> None:
         self.backend_control_task.cancel()
-        self.create_task(self.stop_update_recordings())
-        self.create_task(self.stop_update_recorder_status())
+        self.create_task(self.stop_update_recordings(), name="stop_update_recordings")
+        self.create_task(
+            self.stop_update_recorder_status(), name="stop_update_recorder_status"
+        )
         self.transition.direction = "right"
         self.current = "discovery"
         self.get_screen("control").clear()
@@ -353,10 +357,12 @@ class G3App(App, ScreenManager):
                 recorder_screen.set_recording_status(False)
 
         self.handle_recorder_started_task = self.create_task(
-            handle_recorder_started(recorder_started_queue)
+            handle_recorder_started(recorder_started_queue),
+            name="handle_recorder_started",
         )
         self.handle_recorder_stopped_task = self.create_task(
-            handle_recorder_stopped(recorder_stopped_queue)
+            handle_recorder_stopped(recorder_stopped_queue),
+            name="handle_recorder_stopped",
         )
 
     async def stop_update_recorder_status(self) -> None:
@@ -398,10 +404,11 @@ class G3App(App, ScreenManager):
                 recorder_screen.remove_recording(uuid)
 
         self.handle_added_recordings_task = self.create_task(
-            handle_added_recordings(child_added_queue)
+            handle_added_recordings(child_added_queue), name="handle_added_recordings"
         )
         self.handle_removed_recordings_task = self.create_task(
-            handle_removed_recordings(child_removed_queue)
+            handle_removed_recordings(child_removed_queue),
+            name="handle_removed_recordings",
         )
 
     async def stop_update_recordings(self) -> None:
