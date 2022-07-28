@@ -15,6 +15,7 @@ from glasses3.g3typing import URI, Hostname, LoggerLike
 from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
 from glasses3.rudimentary import Rudimentary
+from glasses3.settings import Settings
 from glasses3.system import System
 from glasses3.utils import APIComponent
 from glasses3.websocket import G3WebSocketClientProtocol
@@ -35,6 +36,7 @@ class Glasses3(APIComponent):
         self._rudimentary: Optional[Rudimentary] = None
         self._system: Optional[System] = None
         self._calibrate: Optional[Calibrate] = None
+        self._settings: Optional[Settings] = None
 
     @property
     def calibrate(self):
@@ -65,6 +67,12 @@ class Glasses3(APIComponent):
         if self._system is None:
             self._system = System(self._connection, URI("/system"))
         return self._system
+
+    @property
+    def settings(self):
+        if self._settings is None:
+            self._settings = Settings(self._connection, URI("/settings"))
+        return self._settings
 
     async def close(self):
         await self._connection.close()
