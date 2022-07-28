@@ -5,7 +5,6 @@ if TYPE_CHECKING:
     LoggerLike = Union[Logger, LoggerAdapter[Any]]
 else:
     LoggerLike = Union[Logger, LoggerAdapter]
-Hostname = NewType("Hostname", str)
 MessageId = NewType("MessageId", int)
 URI = NewType("URI", str)
 JSONObject = Union[int, str, bool, Dict[str, "JSONObject"], List["JSONObject"], None]

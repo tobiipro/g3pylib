@@ -9,14 +9,14 @@ from websockets.client import connect as websockets_connect
 
 import glasses3.websocket as g3_websocket
 from glasses3 import Glasses3, connect_to_glasses
-from glasses3.g3typing import URI, Hostname, JSONDict
+from glasses3.g3typing import URI, JSONDict
 from glasses3.recordings.recording import Recording
 from glasses3.zeroconf import G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
 
 dotenv.load_dotenv()  # type: ignore
-g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
+g3_hostname = os.environ["G3_HOSTNAME"]
 test_request: JSONDict = {"path": "/recorder", "method": "GET"}
 test_request_path = URI("/recorder")
 test_request_params = {"help": True}
