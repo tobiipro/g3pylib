@@ -44,6 +44,16 @@ Builder.load_string("""
         BoxLayout:
             size_hint: 1, None
             height: dp(50)
+            Label:
+                id: hostname
+                text: "Hostname placeholder"
+                halign: "left"
+            Label:
+                id: task_indicator
+                text: "No tasks running."
+        BoxLayout:
+            size_hint: 1, None
+            height: dp(50)
             Button:
                 text: "Recorder"
                 on_press: root.switch_to_screen("recorder")
@@ -182,6 +192,15 @@ class ControlScreen(Screen):
     def switch_to_screen(self, screen: str) -> None:
         self.ids.sm.switch_to(self.ids.sm.screen_by_name[screen])
 
+    def set_task_running_status(self, is_running: bool) -> None:
+        if is_running:
+            self.ids.task_indicator.text = "Task running..."
+        else:
+            self.ids.task_indicator.text = "No task is running."
+
+    def set_hostname(self, hostname: str) -> None:
+        self.ids.hostname.text = hostname
+
 
 class RecorderScreen(Screen):
     def add_recording(
@@ -198,11 +217,11 @@ class RecorderScreen(Screen):
         recordings = self.ids.recordings
         recordings.data = [rec for rec in recordings.data if rec["uuid"] != uuid]
 
-    def set_recording(self) -> None:
-        self.ids.recorder_status.text = "Status: Recording"
-
-    def set_not_recording(self) -> None:
-        self.ids.recorder_status.text = "Status: Not recording"
+    def set_recording_status(self, is_recording: bool) -> None:
+        if is_recording:
+            self.ids.recorder_status.text = "Status: Recording"
+        else:
+            self.ids.recorder_status.text = "Status: Not recording"
 
 
 class LiveScreen(Screen):
@@ -238,6 +257,7 @@ class G3App(App, ScreenManager):
                 "id"
             ]
             self.backend_control_task = self.create_task(self.backend_control(hostname))
+            cast(ControlScreen, self.screen_by_name["control"]).set_hostname(hostname)
             self.switch_to(self.screen_by_name["control"], direction="left")
 
     def disconnect(self) -> None:
@@ -281,6 +301,9 @@ class G3App(App, ScreenManager):
                     await self.handle_control_event(g3, await self.control_events.get())
 
     async def handle_control_event(self, g3: Glasses3, event: ControlEventKind) -> None:
+        cast(ControlScreen, self.screen_by_name["control"]).set_task_running_status(
+            True
+        )
         match event:
             case ControlEventKind.START_RECORDING:
                 await g3.recorder.start()
@@ -288,6 +311,9 @@ class G3App(App, ScreenManager):
                 await g3.recorder.stop()
             case ControlEventKind.DELETE_RECORDING:
                 await self.delete_selected_recording(g3)
+        cast(ControlScreen, self.screen_by_name["control"]).set_task_running_status(
+            False
+        )
 
     async def delete_selected_recording(self, g3: Glasses3) -> None:
         selected = (
@@ -312,11 +338,11 @@ class G3App(App, ScreenManager):
         if await g3.recorder.get_created() != None:
             self.screen_by_name["control"].ids.sm.screen_by_name[
                 "recorder"
-            ].set_recording()
+            ].set_recording(True)
         else:
             self.screen_by_name["control"].ids.sm.screen_by_name[
                 "recorder"
-            ].set_not_recording()
+            ].set_recording(False)
         (
             recorder_started_queue,
             self.unsubscribe_to_recorder_started,
@@ -333,7 +359,7 @@ class G3App(App, ScreenManager):
                 await recorder_started_queue.get()
                 self.screen_by_name["control"].ids.sm.screen_by_name[
                     "recorder"
-                ].set_recording()
+                ].set_recording(True)
 
         async def handle_recorder_stopped(
             recorder_stopped_queue: asyncio.Queue[SignalBody],
