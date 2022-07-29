@@ -167,5 +167,7 @@ class Rudimentary(APIComponent):
     @asynccontextmanager
     async def keep_alive_in_context(self):
         await self.start_streams()
-        yield
-        await self.stop_streams()
+        try:
+            yield
+        finally:
+            await self.stop_streams()
