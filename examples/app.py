@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Tuple, cast
 
 import dotenv
 from kivy.app import App
+from kivy.core.window import Window
 from kivy.lang.builder import Builder
 from kivy.properties import BooleanProperty
 from kivy.uix.label import Label
@@ -228,6 +229,7 @@ class LiveScreen(Screen):
 class G3App(App, ScreenManager):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        Window.bind(on_request_close=self.on_request_close)
         self.tasks: Set[asyncio.Task] = set()
         self.control_events: asyncio.Queue[ControlEventKind] = asyncio.Queue()
         self.add_widget(DiscoveryScreen(name="discovery"))
@@ -238,6 +240,16 @@ class G3App(App, ScreenManager):
 
     def on_start(self):
         self.create_task(self.backend_discovery(), name="backend_discovery")
+
+    def on_request_close(self, *args):
+        self.create_task(self.close())
+        return True
+
+    async def close(self) -> None:
+        if self.current == "control":
+            await self.stop_update_recordings()
+            await self.stop_update_recorder_status()
+        self.stop()
 
     def connect(self) -> None:
         selected = self.get_screen(
