@@ -168,5 +168,7 @@ class Recordings(APIComponent):
     @asynccontextmanager
     async def keep_updated_in_context(self):
         await self.start_children_handler_tasks()
-        yield
-        await self.stop_children_handler_tasks()
+        try:
+            yield
+        finally:
+            await self.stop_children_handler_tasks()
