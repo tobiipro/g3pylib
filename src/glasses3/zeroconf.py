@@ -14,8 +14,12 @@ from glasses3 import utils
 
 logger = logging.getLogger(__name__)
 
-RTSP_SERVICE_TYPE_NAME = "_rtsp._tcp.local."
-G3_SERVICE_TYPE_NAME = "_tobii-g3api._tcp.local."
+RTSP_SERVICE_TYPE = "_rtsp._tcp.local."
+G3_SERVICE_TYPE = "_tobii-g3api._tcp.local."
+
+
+class ServiceNotFoundError(Exception):
+    """Raised when a service request is not sucessful"""
 
 
 class G3Service:
@@ -82,12 +86,14 @@ class G3Service:
             return None
         return f"rtsp://{self.hostname}:{self.rtsp_port}{self.rtsp_live_path}"
 
-    async def request(self, zc: Zeroconf) -> None:
-        await self.service_info.async_request(zc, 3000)
+    async def request(self, zc: Zeroconf, timeout: float = 3) -> None:
+        success = await self.service_info.async_request(zc, timeout)
+        if not success:
+            raise ServiceNotFoundError
         rtsp_service_info = AsyncServiceInfo(
-            RTSP_SERVICE_TYPE_NAME, f"{self.hostname}.{RTSP_SERVICE_TYPE_NAME}"
+            RTSP_SERVICE_TYPE, f"{self.hostname}.{RTSP_SERVICE_TYPE}"
         )
-        if await rtsp_service_info.async_request(zc, 3000):
+        if await rtsp_service_info.async_request(zc, timeout):
             self._rtsp_service_info = rtsp_service_info
 
     def __repr__(self) -> str:
@@ -105,6 +111,10 @@ class G3Service:
             ),
         )
 
+    @classmethod
+    def from_hostname(cls, hostname: str) -> G3Service:
+        return cls(AsyncServiceInfo(G3_SERVICE_TYPE, f"{hostname}.{G3_SERVICE_TYPE}"))
+
 
 class EventKind(Enum):
     ADDED = auto()
@@ -113,7 +123,7 @@ class EventKind(Enum):
 
 
 class _G3ServicesHandler(ServiceListener):
-    def __init__(self, zc: Zeroconf) -> None:
+    def __init__(self, zc: Zeroconf, timeout: float = 3) -> None:
         self.zc = zc
         self._services: Dict[str, G3Service] = dict()
         self._events: asyncio.Queue[Tuple[EventKind, G3Service]] = asyncio.Queue()
@@ -121,7 +131,7 @@ class _G3ServicesHandler(ServiceListener):
             Tuple[EventKind, G3Service]
         ] = asyncio.Queue()
         self.service_handler_task = utils.create_task(
-            self.service_handler(), name="service_handler"
+            self.service_handler(timeout), name="service_handler"
         )
 
     @property
@@ -150,17 +160,17 @@ class _G3ServicesHandler(ServiceListener):
             (EventKind.ADDED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
-    async def service_handler(self):
+    async def service_handler(self, timeout: float):
         while True:
             event = await self._unhandled_events.get()
             match event:
                 case (EventKind.ADDED, service):
-                    await service.request(self.zc)
+                    await service.request(self.zc, timeout)
                     self._services[service.hostname] = service
                     await asyncio.shield(self._events.put(event))
                 case (EventKind.UPDATED, service):
                     service = self.services[service.hostname]
-                    await asyncio.shield(service.request(self.zc))
+                    await asyncio.shield(service.request(self.zc, timeout))
                     await asyncio.shield(self._events.put((EventKind.UPDATED, service)))
                 case (EventKind.REMOVED, service):
                     del self.services[service.hostname]
@@ -198,11 +208,13 @@ class G3ServiceDiscovery:
 
     @classmethod
     @asynccontextmanager
-    async def listen(cls) -> AsyncIterator[G3ServiceDiscovery]:
+    async def listen(cls, timeout: float = 3) -> AsyncIterator[G3ServiceDiscovery]:
         async with AsyncZeroconf() as async_zeroconf:
-            async with _G3ServicesHandler(async_zeroconf.zeroconf) as services_handler:
+            async with _G3ServicesHandler(
+                async_zeroconf.zeroconf, timeout
+            ) as services_handler:
                 await async_zeroconf.async_add_service_listener(
-                    G3_SERVICE_TYPE_NAME, services_handler
+                    G3_SERVICE_TYPE, services_handler
                 )
                 yield cls(async_zeroconf, services_handler)
 
@@ -217,6 +229,15 @@ class G3ServiceDiscovery:
     @property
     def services(self):
         return list(self._services_handler.services.values())
+
+    @staticmethod
+    async def request_service(hostname: str, timeout: float = 3) -> G3Service:
+        """Request information about a single specific service identified by its hostname.
+        Raises `ServiceNotFoundError` when the service can't be found on the network."""
+        service = G3Service.from_hostname(hostname)
+        async with AsyncZeroconf() as async_zeroconf:
+            await service.request(async_zeroconf.zeroconf, timeout)
+        return service
 
     @staticmethod
     async def wait_for_single_service(
