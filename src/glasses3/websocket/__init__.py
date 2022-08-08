@@ -201,7 +201,7 @@ class G3WebSocketClientProtocol(
                         raise InvalidResponseError
 
         self.g3_logger.debug("Receiver task starting")
-        self._receiver_task = utils.create_task(receiver_task(), name="receiver_task")
+        self._receiver_task = utils.create_task(receiver_task(), name="receiver")
 
     async def require(self, request: JSONDict) -> JSONObject:
         """Sends a request  with a unique id and returns the body of the response with the same id."""

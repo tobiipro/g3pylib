@@ -117,11 +117,11 @@ class Recordings(APIComponent):
             )
             self._handle_child_added_task = utils.create_task(
                 handle_child_added_task(added_children_queue),
-                name=handle_child_added_task,
+                name="child_added_handler",
             )
             self._handle_child_removed_task = utils.create_task(
                 handle_child_removed_task(removed_children_queue),
-                name=handle_child_removed_task,
+                name="child_removed_handler",
             )
         else:
             self.logger.warning(
