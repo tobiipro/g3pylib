@@ -2,8 +2,10 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import List, cast
 
+import cv2
 import dotenv
 from websockets.client import connect as websockets_connect
 
@@ -13,7 +15,7 @@ from glasses3.g3typing import URI, JSONDict
 from glasses3.recordings.recording import Recording
 from glasses3.zeroconf import G3ServiceDiscovery
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 dotenv.load_dotenv()  # type: ignore
 g3_hostname = os.environ["G3_HOSTNAME"]
@@ -161,8 +163,55 @@ async def use_case_auto_connect():
             print(cast(Recording, g3.recordings[0]).uuid)
 
 
+async def use_case_demux():
+    async with connect_to_glasses(g3_hostname) as g3:
+        async with g3.stream_rtsp() as streams:
+            async with streams.scene_camera.demux() as demuxed_stream:
+                for _ in range(10):
+                    nal_unit = await demuxed_stream.get()
+                    print(nal_unit.type, nal_unit.nri)
+
+
+async def use_case_decode():
+    async with connect_to_glasses(g3_hostname) as g3:
+        async with g3.stream_rtsp(scene_camera=False, eye_cameras=True) as streams:
+            async with streams.eye_cameras.decode() as decoded_stream:
+                for _ in range(500):
+                    frame = await decoded_stream.get()
+                    t0 = time.perf_counter()
+                    image = frame.to_ndarray(format="bgr24")
+                    t1 = time.perf_counter()
+                    logging.debug(f"Converted to nd_array in {t1 - t0:.6f} seconds")
+                    cv2.imshow("Video", image)  # type: ignore
+                    cv2.waitKey(1)
+                logging.debug(streams.eye_cameras.stats)
+
+
+async def use_case_two_streams():
+    async with connect_to_glasses(g3_hostname) as g3:
+        async with g3.stream_rtsp(scene_camera=True, eye_cameras=True) as streams:
+            async with (
+                streams.eye_cameras.decode() as eye_cameras,
+                streams.scene_camera.decode() as scene_camera,
+            ):
+                for _ in range(100):
+                    eye_frame = await eye_cameras.get()
+                    await eye_cameras.get()
+                    scene_frame = await scene_camera.get()
+                    t0 = time.perf_counter()
+                    image = eye_frame.to_ndarray(format="bgr24")
+                    image2 = scene_frame.to_ndarray(format="bgr24")
+                    t1 = time.perf_counter()
+                    logging.debug(f"Converted to nd_array in {t1 - t0:.6f} seconds")
+                    cv2.imshow("Eye", image)  # type: ignore
+                    cv2.waitKey(1)
+                    cv2.imshow("Scene", image2)  # type: ignore
+                    cv2.waitKey(1)
+                logging.debug(streams.eye_cameras.stats)
+
+
 async def handler():
-    await asyncio.gather(use_case_auto_connect())
+    await asyncio.gather(use_case_decode())
 
 
 def main():

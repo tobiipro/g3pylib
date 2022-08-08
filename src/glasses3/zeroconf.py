@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 from enum import Enum, auto
 from types import TracebackType
-from typing import AsyncIterator, Dict, Optional, Tuple, Type
+from typing import AsyncIterator, Dict, Optional, Tuple, Type, cast
 
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
@@ -14,14 +14,22 @@ from glasses3 import utils
 
 logger = logging.getLogger(__name__)
 
+RTSP_SERVICE_TYPE_NAME = "_rtsp._tcp.local."
+G3_SERVICE_TYPE_NAME = "_tobii-g3api._tcp.local."
+
 
 class G3Service:
     def __init__(self, service_info: AsyncServiceInfo) -> None:
         self._service_info = service_info
+        self._rtsp_service_info = None
 
     @property
     def service_info(self) -> AsyncServiceInfo:
         return self._service_info
+
+    @property
+    def rtsp_service_info(self) -> Optional[AsyncServiceInfo]:
+        return self._rtsp_service_info
 
     @property
     def hostname(self) -> str:
@@ -48,6 +56,39 @@ class G3Service:
             return self._service_info.parsed_addresses(IPVersion.V6Only)[0]
         except IndexError:
             return None
+
+    @property
+    def rtsp_port(self) -> Optional[int]:
+        if self.rtsp_service_info is None:
+            return None
+        return self.rtsp_service_info.port
+
+    @property
+    def rtsp_live_path(self) -> Optional[str]:
+        if self.rtsp_service_info is None:
+            return None
+        return cast(Dict[bytes, bytes], self.rtsp_service_info.properties)[b"path"].decode("ascii")  # type: ignore
+
+    @property
+    def rtsp_recordings_path(self) -> Optional[str]:
+        # Possibly unnecessary. This path can be fetched from the API.
+        if self.rtsp_service_info is None:
+            return None
+        return cast(Dict[bytes, bytes], self.rtsp_service_info.properties)[b"recordings"].decode("ascii")  # type: ignore
+
+    @property
+    def rtsp_url(self) -> Optional[str]:
+        if self.rtsp_service_info is None:
+            return None
+        return f"rtsp://{self.hostname}:{self.rtsp_port}{self.rtsp_live_path}"
+
+    async def request(self, zc: Zeroconf) -> None:
+        await self.service_info.async_request(zc, 3000)
+        rtsp_service_info = AsyncServiceInfo(
+            RTSP_SERVICE_TYPE_NAME, f"{self.hostname}.{RTSP_SERVICE_TYPE_NAME}"
+        )
+        if await rtsp_service_info.async_request(zc, 3000):
+            self._rtsp_service_info = rtsp_service_info
 
     def __repr__(self) -> str:
         return "{}({})".format(
@@ -114,14 +155,12 @@ class _G3ServicesHandler(ServiceListener):
             event = await self._unhandled_events.get()
             match event:
                 case (EventKind.ADDED, service):
-                    await service.service_info.async_request(self.zc, 3000)
+                    await service.request(self.zc)
                     self._services[service.hostname] = service
                     await asyncio.shield(self._events.put(event))
                 case (EventKind.UPDATED, service):
                     service = self.services[service.hostname]
-                    await asyncio.shield(
-                        service.service_info.async_request(self.zc, 3000)
-                    )
+                    await asyncio.shield(service.request(self.zc))
                     await asyncio.shield(self._events.put((EventKind.UPDATED, service)))
                 case (EventKind.REMOVED, service):
                     del self.services[service.hostname]
@@ -149,10 +188,10 @@ class _G3ServicesHandler(ServiceListener):
 
 
 class G3ServiceDiscovery:
-    G3_SERVICE_TYPE_NAME = "_tobii-g3api._tcp.local."
-
     def __init__(
-        self, async_zeroconf: AsyncZeroconf, services_handler: _G3ServicesHandler
+        self,
+        async_zeroconf: AsyncZeroconf,
+        services_handler: _G3ServicesHandler,
     ) -> None:
         self.async_zeroconf = async_zeroconf
         self._services_handler = services_handler
@@ -163,7 +202,7 @@ class G3ServiceDiscovery:
         async with AsyncZeroconf() as async_zeroconf:
             async with _G3ServicesHandler(async_zeroconf.zeroconf) as services_handler:
                 await async_zeroconf.async_add_service_listener(
-                    cls.G3_SERVICE_TYPE_NAME, services_handler
+                    G3_SERVICE_TYPE_NAME, services_handler
                 )
                 yield cls(async_zeroconf, services_handler)
 
