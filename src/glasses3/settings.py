@@ -19,7 +19,14 @@ class Settings(APIComponent):
             ),
         )
 
-    # implement gaze-frequency setter? range is [50,50]
+    async def set_gaze_frequency(self, value: int) -> bool:
+        return cast(
+            bool,
+            await self._connection.require_post(
+                self.generate_endpoint_uri(EndpointKind.PROPERTY, "gaze-frequency"),
+                body=value,
+            ),
+        )
 
     async def get_gaze_overlay(self) -> bool:
         return cast(
