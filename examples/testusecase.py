@@ -174,17 +174,17 @@ async def use_case_demux():
 
 async def use_case_decode():
     async with connect_to_glasses(g3_hostname) as g3:
-        async with g3.stream_rtsp(scene_camera=False, eye_cameras=True) as streams:
-            async with streams.eye_cameras.decode() as decoded_stream:
+        async with g3.stream_rtsp() as streams:
+            async with streams.scene_camera.decode() as decoded_stream:
                 for _ in range(500):
                     frame = await decoded_stream.get()
-                    t0 = time.perf_counter()
+                    # t0 = time.perf_counter()
                     image = frame.to_ndarray(format="bgr24")
-                    t1 = time.perf_counter()
-                    logging.debug(f"Converted to nd_array in {t1 - t0:.6f} seconds")
+                    # t1 = time.perf_counter()
+                    # logging.debug(f"Converted to nd_array in {t1 - t0:.6f} seconds")
                     cv2.imshow("Video", image)  # type: ignore
                     cv2.waitKey(1)
-                logging.debug(streams.eye_cameras.stats)
+                logging.debug(streams.scene_camera.stats)
 
 
 async def use_case_two_streams():

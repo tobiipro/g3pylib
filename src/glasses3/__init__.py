@@ -125,9 +125,13 @@ class connect_to_glasses:
                 self.service = await service_discovery.wait_for_single_service(
                     service_discovery.events
                 )
-
-        if self.g3_hostname is None:
-            self.g3_hostname = cast(G3Service, self.service).hostname
+            self.g3_hostname = self.service.hostname
+        elif self.service is None and self.g3_hostname is not None:
+            self.service = await G3ServiceDiscovery.request_service(self.g3_hostname)
+        elif self.g3_hostname is None and self.service is not None:
+            self.g3_hostname = self.service.hostname
+        else:
+            raise ValueError
 
         connection = await glasses3.websocket.connect(self.g3_hostname)
         connection = cast(G3WebSocketClientProtocol, connection)
