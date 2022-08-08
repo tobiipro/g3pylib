@@ -15,7 +15,7 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.screenmanager import Screen, ScreenManager
 
-from controleventkind import ControlEventKind
+from eventkinds import AppEventKind, ControlEventKind
 from glasses3 import Glasses3, connect_to_glasses
 from glasses3.g3typing import Hostname, SignalBody
 from glasses3.recordings.recording import Recording
@@ -29,7 +29,8 @@ g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
 # fmt: off
 Builder.load_string("""
 #:import NoTransition kivy.uix.screenmanager.NoTransition
-#:import ControlEventKind controleventkind.ControlEventKind
+#:import ControlEventKind eventkinds.ControlEventKind
+#:import AppEventKind eventkinds.AppEventKind
 
 <DiscoveryScreen>:
     BoxLayout:
@@ -37,7 +38,7 @@ Builder.load_string("""
             id: services
         Button:
             text: "Connect"
-            on_press: app.connect()
+            on_press: app.send_app_event(AppEventKind.CONNECT)
 
 <ControlScreen>:
     BoxLayout:
@@ -65,7 +66,7 @@ Builder.load_string("""
                 background_color: (0.6, 0.6, 1, 1)
                 text: "Disconnect"
                 on_press:
-                    app.disconnect()
+                    app.send_app_event(AppEventKind.DISCONNECT)
         ScreenManager:
             id: sm
             transition: NoTransition()
@@ -140,10 +141,6 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
     def apply_selection(self, rv, index, is_selected):
         """Respond to the selection of items in the view."""
         self.selected = is_selected
-        if is_selected:
-            print("selection changed to {0}".format(rv.data[index]))
-        else:
-            print("selection removed for {0}".format(rv.data[index]))
 
 
 class SelectableList(RecycleView):
@@ -229,8 +226,9 @@ class LiveScreen(Screen):
 class G3App(App, ScreenManager):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        Window.bind(on_request_close=self.on_request_close)
+        Window.bind(on_request_close=self.close)
         self.tasks: Set[asyncio.Task] = set()
+        self.app_events: asyncio.Queue[AppEventKind] = asyncio.Queue()
         self.control_events: asyncio.Queue[ControlEventKind] = asyncio.Queue()
         self.add_widget(DiscoveryScreen(name="discovery"))
         self.add_widget(ControlScreen(name="control"))
@@ -239,17 +237,24 @@ class G3App(App, ScreenManager):
         return self
 
     def on_start(self):
-        self.create_task(self.backend_discovery(), name="backend_discovery")
+        self.create_task(self.backend_app(), name="backend_app")
+        self.send_app_event(AppEventKind.START_DISCOVERY)
 
-    def on_request_close(self, *args):
-        self.create_task(self.close())
+    def close(self, *args) -> bool:
+        match self.current:
+            case "discovery":
+                self.send_app_event(AppEventKind.STOP_DISCOVERY)
+            case "control":
+                self.send_app_event(AppEventKind.DISCONNECT)
+        self.send_app_event(AppEventKind.STOP)
         return True
 
-    async def close(self) -> None:
-        if self.current == "control":
-            await self.stop_update_recordings()
-            await self.stop_update_recorder_status()
-        self.stop()
+    def switch_to_screen(self, screen: str):
+        if screen == "discovery":
+            self.transition.direction = "right"
+        else:
+            self.transition.direction = "left"
+        self.current = screen
 
     def connect(self) -> None:
         selected = self.get_screen(
@@ -263,18 +268,50 @@ class G3App(App, ScreenManager):
                 self.backend_control(hostname), name="backend_control"
             )
             self.get_screen("control").set_hostname(hostname)
-            self.transition.direction = "left"
-            self.current = "control"
+            self.switch_to_screen("control")
+            self.send_app_event(AppEventKind.STOP_DISCOVERY)
 
-    def disconnect(self) -> None:
+    async def disconnect(self) -> None:
+        self.send_app_event(AppEventKind.START_DISCOVERY)
+        await self.stop_update_recordings()
+        await self.stop_update_recorder_status()
         self.backend_control_task.cancel()
-        self.create_task(self.stop_update_recordings(), name="stop_update_recordings")
-        self.create_task(
-            self.stop_update_recorder_status(), name="stop_update_recorder_status"
-        )
-        self.transition.direction = "right"
-        self.current = "discovery"
+        try:
+            await self.backend_control_task
+        except asyncio.CancelledError:
+            print("backend_control_task cancelled")
+        self.switch_to_screen("discovery")
         self.get_screen("control").clear()
+
+    async def stop_discovery(self):
+        self.discovery_task.cancel()
+        try:
+            await self.discovery_task
+        except asyncio.CancelledError:
+            print("discovery_task cancelled")
+        self.get_screen("discovery").ids.services.data = []
+
+    def send_app_event(self, event: AppEventKind) -> None:
+        self.app_events.put_nowait(event)
+
+    async def backend_app(self) -> None:
+        while True:
+            await self.handle_app_event(await self.app_events.get())
+
+    async def handle_app_event(self, event: AppEventKind):
+        match event:
+            case AppEventKind.START_DISCOVERY:
+                self.discovery_task = self.create_task(
+                    self.backend_discovery(), name="backend_discovery"
+                )
+            case AppEventKind.STOP_DISCOVERY:
+                await self.stop_discovery()
+            case AppEventKind.CONNECT:
+                self.connect()
+            case AppEventKind.DISCONNECT:
+                await self.disconnect()
+            case AppEventKind.STOP:
+                self.stop()
 
     async def backend_discovery(self) -> None:
         async with G3ServiceDiscovery.listen() as service_listener:
@@ -328,7 +365,7 @@ class G3App(App, ScreenManager):
         )
         if len(selected) != 1:
             print(
-                "Please select one recording before attempting delete."
+                "Please select a recording before attempting delete."
             )  # TODO: print in gui
         else:
             uuid = (
