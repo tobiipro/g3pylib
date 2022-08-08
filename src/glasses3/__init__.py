@@ -24,12 +24,13 @@ __version__ = "0.1.0-alpha"
 
 class Glasses3(APIComponent):
     def __init__(
-        # Type ignored in this file since LoggerAdapter does not support generic typing
         self,
         connection: G3WebSocketClientProtocol,
+        rtsp_url: str,
         logger: Optional[LoggerLike] = None,
     ) -> None:
         self.logger = logging.getLogger(__name__) if logger is None else logger
+        self._rtsp_url = rtsp_url
         self._connection: G3WebSocketClientProtocol = connection
         self._recorder: Optional[Recorder] = None
         self._recordings: Optional[Recordings] = None
@@ -74,6 +75,10 @@ class Glasses3(APIComponent):
             self._settings = Settings(self._connection, URI("/settings"))
         return self._settings
 
+    @property
+    def rtsp_url(self) -> str:
+        return self._rtsp_url
+
     @asynccontextmanager
     async def stream_rtsp(
         self,
@@ -85,7 +90,17 @@ class Glasses3(APIComponent):
         imu: bool = False,
         events: bool = False,
     ) -> AsyncIterator[Streams]:
-        async with Streams.connect_using_g3(self) as streams:
+        async with Streams.connect(
+            self.rtsp_url,
+            scene_camera=scene_camera,
+            audio=audio,
+            eye_cameras=eye_cameras,
+            gaze=gaze,
+            sync=sync,
+            imu=imu,
+            events=events,
+        ) as streams:
+            await streams.play()
             yield streams
 
     async def close(self):
@@ -105,20 +120,20 @@ class connect_to_glasses:
         return self.__await_impl__().__await__()
 
     async def __await_impl__(self):
-        if not self.g3_hostname and not self.service:
+        if self.g3_hostname is None and self.service is None:
             async with G3ServiceDiscovery.listen() as service_discovery:
                 self.service = await service_discovery.wait_for_single_service(
                     service_discovery.events
                 )
 
-        if not self.g3_hostname:
+        if self.g3_hostname is None:
             self.g3_hostname = cast(G3Service, self.service).hostname
 
         connection = await glasses3.websocket.connect(self.g3_hostname)
         connection = cast(G3WebSocketClientProtocol, connection)
         connection.start_receiver_task()
         self.connection = connection
-        return Glasses3(connection)
+        return Glasses3(connection, self.service.rtsp_url)
 
     async def __aenter__(self) -> Glasses3:
         return await self

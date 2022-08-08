@@ -1,20 +1,34 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+import functools
+import logging
+from abc import ABC, abstractmethod, abstractproperty
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import AsyncExitStack, asynccontextmanager
 from enum import Enum, auto
-from typing import AsyncIterator, Dict, Optional, Set, TypeVar, Union, cast
+from functools import cached_property
+from typing import Any, AsyncIterator, Dict, List, Set, Union, cast
 from urllib.parse import urlparse
 
-import av
-from aiortsp.rtcp.parser import RTCP
-from aiortsp.transport import RTPTransport, RTPTransportClient
-from dpkt.rtp import RTP
+import av  # type: ignore
+from aiortsp.rtcp.parser import RTCP  # type: ignore
+from aiortsp.rtsp.connection import RTSPConnection  # type: ignore
+from aiortsp.rtsp.session import (  # type: ignore
+    MediaStreamConfiguration,
+    MediaType,
+    RTSPMediaSession,
+)
+from aiortsp.transport import (  # type: ignore
+    RTPTransport,
+    RTPTransportClient,
+    transport_for_scheme,
+)
+from dpkt.rtp import RTP  # type: ignore
 
-from glasses3 import Glasses3, utils
+from glasses3 import utils
 
-T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 class StreamType(Enum):
@@ -45,7 +59,6 @@ class StreamType(Enum):
                 return "events"
 
 
-@dataclass
 class NALUnit:
     """Represents a RTP or H264 NAL unit
 
@@ -67,115 +80,283 @@ class NALUnit:
     _R_MASK = 0b00100000
     _R_SHIFT = 5
 
-    f: int
-    """Forbidden zero bit"""
-    nri: int
-    """NAL ref IDC"""
-    type: int
-    """NAL unit type"""
-    header: int
-    """The header of the NAL unit or FU indicator in the case of a fragamentation unit"""
-    payload: Union[bytes, bytearray]
-    """The payload of the NAL unit"""
-    data: Optional[bytes] = field(default=None, init=False)
+    data: bytearray
     """Header and payload"""
+
+    def __init__(self, data: Union[bytes, bytearray, memoryview]) -> None:
+        self.data = bytearray(data)
+
+    @cached_property
+    def f(self) -> int:
+        """Forbidden zero bit"""
+        return (self.header & self._F_MASK) >> self._F_SHIFT
+
+    @cached_property
+    def nri(self) -> int:
+        """NAL ref IDC"""
+        return (self.header & self._NRI_MASK) >> self._NRI_SHIFT
+
+    @cached_property
+    def type(self) -> int:
+        """NAL unit type"""
+        return (self.header & self._TYPE_MASK) >> self._TYPE_SHIFT
+
+    @cached_property
+    def header(self) -> int:
+        """The header of the NAL unit or FU indicator in the case of a fragamentation unit"""
+        return self.data[0]
+
+    @property
+    def payload(self) -> bytes:
+        """The payload of the NAL unit"""
+        if isinstance(self, FUA):
+            return self.data[2:]
+        return self.data[1:]
+
+    @property
+    def data_with_prefix(self) -> bytes:
+        """The header and payload of the NAL unit with start code prefix prepended"""
+        return self._START_CODE_PREFIX + self.data
 
     @classmethod
     def from_rtp_payload(cls, rtp_payload: bytes) -> NALUnit:
-        header = rtp_payload[0]
-        f = (header & cls._F_MASK) >> cls._F_SHIFT
-        nri = (header & cls._NRI_MASK) >> cls._NRI_SHIFT
-        type = (header & cls._TYPE_MASK) >> cls._TYPE_SHIFT
-        if type == 28:
-            fu_header = rtp_payload[1]
-            s = (fu_header & cls._S_MASK) >> cls._S_SHIFT
-            e = (fu_header & cls._E_MASK) >> cls._E_SHIFT
-            original_type = (fu_header & cls._TYPE_MASK) >> cls._TYPE_SHIFT
-            payload = rtp_payload[2:]
-            return FUA(f, nri, type, header, payload, s, e, original_type, fu_header)
-        payload = rtp_payload[1:]
-        return cls(f, nri, type, header, payload)
+        nal_unit = cls(rtp_payload)
+        if nal_unit.type == 28:
+            return FUA(rtp_payload)
+        return nal_unit
 
     @classmethod
     def from_fu_a(cls, fu_a: FUA):
-        header = fu_a.f | fu_a.nri | fu_a.original_type
-        payload = bytearray()
-        payload += fu_a.payload
-        return cls(fu_a.f, fu_a.nri, fu_a.original_type, header, payload)
+        header = fu_a.header & (cls._F_MASK | cls._NRI_MASK) | fu_a.original_type
+        data = bytearray()
+        data.append(header)
+        data += fu_a.payload
+        return cls(data)
 
 
-@dataclass
 class FUA(NALUnit):
     """A specific type of RTP NAL unit called FU-A (Fragmentation Unit type A).
     Described in detail in RFC 6184 section [5.8](https://datatracker.ietf.org/doc/html/rfc6184#section-5.8)."""
 
-    s: int
-    """Start bit for fragmentation unit"""
-    e: int
-    """End bit for fragmentation unit"""
-    original_type: int
-    """The type of the NAL unit contained in the fragmentation unit"""
-    fu_header: int
-    """The extra header in fragmentation units"""
+    @cached_property
+    def s(self) -> int:
+        """Start bit for fragmentation unit"""
+        return (self.fu_header & self._S_MASK) >> self._S_SHIFT
+
+    @cached_property
+    def e(self) -> int:
+        """End bit for fragmentation unit"""
+        return (self.fu_header & self._E_MASK) >> self._E_SHIFT
+
+    @cached_property
+    def original_type(self) -> int:
+        """The type of the NAL unit contained in the fragmentation unit"""
+        return (self.fu_header & self._TYPE_MASK) >> self._TYPE_SHIFT
+
+    @cached_property
+    def fu_header(self) -> int:
+        """The extra header in fragmentation units"""
+        return self.data[1]
 
 
-class Stream(RTPTransportClient):
+class Stream(RTPTransportClient, ABC):
     transport: RTPTransport
     rtp_queue: asyncio.Queue[RTP]
     rtcp_queue: asyncio.Queue[RTCP]
     type: StreamType
-    nal_unit_builder: NALUnit
 
-    def __init__(
-        self,
-    ) -> None:
-        raise NotImplementedError
+    def __init__(self, transport: RTPTransport, type: StreamType) -> None:
+        transport.subscribe(self)
+        self.transport = transport
+        self.rtp_queue = asyncio.Queue()
+        self.rtcp_queue = asyncio.Queue()
+        self.type = type
 
     def handle_rtp(self, rtp: RTP) -> None:
         self.rtp_queue.put_nowait(rtp)
+        # logger.debug(f"RTP size: {len(rtp.data)}")
 
     def handle_rtcp(self, rtcp: RTCP) -> None:
         self.rtcp_queue.put_nowait(rtcp)
 
+    @abstractproperty
+    def stats(self) -> Dict[str, int]:
+        raise NotImplementedError
+
+    @property
+    def media_stream_configuration(self) -> MediaStreamConfiguration:
+        return MediaStreamConfiguration(
+            self.transport, self.media_type, self.media_index
+        )
+
+    @abstractproperty
+    def media_type(self) -> MediaType:
+        raise NotImplementedError
+
+    @property
+    def media_index(self) -> int:
+        match self.type:
+            case StreamType.SCENE_CAMERA:
+                return 0
+            case StreamType.AUDIO:
+                return 0
+            case StreamType.EYE_CAMERAS:
+                return 1
+            case StreamType.GAZE:
+                return 0
+            case StreamType.SYNC:
+                return 1
+            case StreamType.IMU:
+                return 2
+            case StreamType.EVENTS:
+                return 3
+
+    @classmethod
+    @asynccontextmanager
+    async def setup(
+        cls, connection: RTSPConnection, stream_type: StreamType, scheme: str
+    ) -> AsyncIterator[Stream]:
+        transport_class = transport_for_scheme(scheme)
+        async with transport_class(connection) as transport:
+            yield cls(transport, stream_type)
+
+    @abstractmethod
+    @asynccontextmanager
+    async def demux(self) -> AsyncIterator[asyncio.Queue[Any]]:
+        raise NotImplementedError
+        yield
+
+    @abstractmethod
+    @asynccontextmanager
+    async def decode(self) -> AsyncIterator[asyncio.Queue[Any]]:
+        raise NotImplementedError
+        yield
+
+
+class VideoStream(Stream):
+    _nal_unit_builder: NALUnit
+    process_pool: ProcessPoolExecutor
+
+    def __init__(self, transport: RTPTransport, stream_type: StreamType) -> None:
+        super().__init__(transport, stream_type)
+        self.codec_context: Any = av.CodecContext.create("h264", "r")  # type: ignore
+        self.sps_or_pps_received = False
+        self._demux_in_count = 0
+        self._demux_out_count = 0
+        self._decode_count = 0
+        self._fragment_count = 0
+
+    @property
+    def media_type(self) -> MediaType:
+        return "video"
+
+    @property
+    def stats(self) -> Dict[str, int]:
+        return {
+            "demux_in_count": self._demux_in_count,
+            "demux_out_count": self._demux_out_count,
+            "decode_count": self._decode_count,
+        }
+
     @asynccontextmanager
     async def demux(self) -> AsyncIterator[asyncio.Queue[NALUnit]]:
-        nal_unit_queue: asyncio.Queue[NALUnit] = asyncio.Queue()
+        nal_unit_queue: asyncio.Queue[NALUnit] = asyncio.Queue(2)
 
         async def demuxer():
             while True:
                 rtp = await self.rtp_queue.get()
-                # TODO: Should maybe run in processpool
+                self._demux_in_count += 1
+                # t0 = time.perf_counter()
                 nal_unit = NALUnit.from_rtp_payload(cast(bytes, rtp.data))  # type: ignore
                 if nal_unit.type in [7, 8]:
+                    # SPS or PPS is queued
+                    self.sps_or_pps_received = True
                     await nal_unit_queue.put(nal_unit)
+                    self._demux_out_count += 1
+                    continue
+                if not self.sps_or_pps_received:
+                    # SPS or PPS should be the first NAL unit to be queued
+                    continue
+                if nal_unit.type in [1, 5]:
+                    # Self contained NAL unit is queued
+                    await nal_unit_queue.put(nal_unit)
+                    self._demux_out_count += 1
+                    continue
                 if isinstance(nal_unit, FUA):
+                    # Fragmented NAL units need to be aggregated
                     if nal_unit.s:
-                        self.nal_unit_builder = NALUnit.from_fu_a(nal_unit)
+                        self._nal_unit_builder = NALUnit.from_fu_a(nal_unit)
+                        self._fragment_count = 1
+                        # t1 = time.perf_counter()
+                        # logger.debug(f"Demuxed FU-A start in {t1 - t0:.6f} seconds")
                         continue
-                    self.nal_unit_builder.payload += nal_unit.payload
+                    self._nal_unit_builder.data += nal_unit.payload
+                    self._fragment_count += 1
+                    # t1 = time.perf_counter()
+                    # logger.debug(f"Demuxed FU-A in {t1 - t0:.6f} seconds")
                     if nal_unit.e:
-                        await nal_unit_queue.put(self.nal_unit_builder)
+                        # logger.debug(f"NAL unit built of {self._fragment_count} FU-As")
+                        await nal_unit_queue.put(self._nal_unit_builder)
+                        self._demux_out_count += 1
+                else:
+                    logger.warning(f"Unhandled NAL unit of type {nal_unit.type}")
 
-        demuxer_task = utils.create_task(demuxer())
-        yield nal_unit_queue
-        demuxer_task.cancel()
-        await demuxer_task
+        demuxer_task = utils.create_task(demuxer(), name="demuxer")
+        try:
+            yield nal_unit_queue
+        finally:
+            demuxer_task.cancel()
+            try:
+                await demuxer_task
+            except asyncio.CancelledError:
+                pass
 
-    def decode(self) -> AsyncIterator[asyncio.Queue[av.VideoFrame]]:
-        raise NotImplementedError
+    @asynccontextmanager
+    async def decode(self) -> AsyncIterator[asyncio.Queue[Any]]:
+        frame_queue: asyncio.Queue[Any] = asyncio.Queue(2)
+
+        async def decoder():
+            async with self.demux() as nal_unit_queue:
+                while True:
+                    nal_unit = await nal_unit_queue.get()
+                    # t0 = time.perf_counter()
+                    packets = cast(
+                        List[Any],
+                        self.codec_context.parse(nal_unit.data_with_prefix),
+                    )
+                    frames = functools.reduce(
+                        lambda frame_acc, packet: frame_acc
+                        + self.codec_context.decode(packet),
+                        packets,
+                        [],
+                    )
+                    # t1 = time.perf_counter()
+                    # logger.debug(f"Decoded NAL unit in {t1 - t0:.6f} seconds")
+                    for frame in frames:
+                        await frame_queue.put(frame)
+                        self._decode_count += 1
+
+        decoder_task = utils.create_task(decoder(), name="decoder")
+        try:
+            yield frame_queue
+        finally:
+            decoder_task.cancel()
+            try:
+                await decoder_task
+            except asyncio.CancelledError:
+                pass
 
 
 class Streams:
-    def __init__(self, url: str, streams: Set[Stream]) -> None:
-        self.parsed_url = urlparse(url)
-        self.media_url = url
+    def __init__(self, session: RTSPMediaSession, streams: Set[Stream]) -> None:
+        self.session = session
         self.streams: Dict[StreamType, Stream] = {
             stream.type: stream for stream in streams
         }
 
     @property
-    def scene_camera(self) -> Stream:
-        return self._get_stream(StreamType.SCENE_CAMERA)
+    def scene_camera(self) -> VideoStream:
+        return cast(VideoStream, self._get_stream(StreamType.SCENE_CAMERA))
 
     @property
     def audio(self) -> Stream:
@@ -213,9 +394,9 @@ class Streams:
 
     @classmethod
     @asynccontextmanager
-    async def connect_using_g3(
+    async def connect(
         cls,
-        g3: Glasses3,
+        rtsp_url: str,
         scene_camera: bool = True,
         audio: bool = False,
         eye_cameras: bool = False,
@@ -224,8 +405,37 @@ class Streams:
         imu: bool = False,
         events: bool = False,
     ) -> AsyncIterator[Streams]:
-        raise NotImplementedError
-        yield cls()
+        parsed_url = urlparse(rtsp_url)
+        async with RTSPConnection(parsed_url.hostname, parsed_url.port) as connection:
+            async with AsyncExitStack() as stack:
+                streams: Set[Stream] = set()
+                if scene_camera:
+                    streams.add(
+                        await stack.enter_async_context(
+                            VideoStream.setup(
+                                connection, StreamType.SCENE_CAMERA, parsed_url.scheme
+                            )
+                        )
+                    )
+                if eye_cameras:
+                    streams.add(
+                        await stack.enter_async_context(
+                            VideoStream.setup(
+                                connection, StreamType.EYE_CAMERAS, parsed_url.scheme
+                            )
+                        )
+                    )
+                if audio or gaze or sync or imu or events:
+                    raise NotImplementedError
 
-    def play(self) -> None:
-        raise NotImplementedError
+                async with RTSPMediaSession(
+                    connection,
+                    rtsp_url,
+                    media_stream_configurations=list(
+                        map(lambda s: s.media_stream_configuration, streams)
+                    ),
+                ) as session:
+                    yield cls(session, streams)
+
+    async def play(self) -> None:
+        await self.session.play()  # type: ignore
