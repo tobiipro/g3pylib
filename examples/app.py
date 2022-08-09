@@ -17,14 +17,15 @@ from kivy.uix.screenmanager import Screen, ScreenManager
 
 from eventkinds import AppEventKind, ControlEventKind
 from glasses3 import Glasses3, connect_to_glasses
-from glasses3.g3typing import Hostname, SignalBody
+from glasses3.g3typing import SignalBody
+from glasses3.recordings import RecordingsEventKind
 from glasses3.recordings.recording import Recording
 from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
 
 dotenv.load_dotenv()  # type: ignore
-g3_hostname = Hostname(os.environ["G3_HOSTNAME"])
+g3_hostname = os.environ["G3_HOSTNAME"]
 
 # fmt: off
 Builder.load_string("""
@@ -180,7 +181,7 @@ class ControlScreen(Screen):
         self.ids.sm.add_widget(RecorderScreen(name="recorder"))
         self.ids.sm.add_widget(LiveScreen(name="live"))
 
-    def clear(self) -> None:  # let every child screen have clear method?
+    def clear(self) -> None:
         self.ids.sm.get_screen("recorder").ids.recordings.data = []
         self.ids.sm.get_screen("recorder").ids.recorder_status.text = "Status:"
 
@@ -336,9 +337,7 @@ class G3App(App, ScreenManager):
     def send_control_event(self, event: ControlEventKind) -> None:
         self.control_events.put_nowait(event)
 
-    async def backend_control(
-        self, hostname
-    ) -> None:  # TODO: type when Hostname removed from API
+    async def backend_control(self, hostname: str) -> None:
         async with connect_to_glasses(hostname) as g3:
             async with g3.recordings.keep_updated_in_context():
                 await self.start_update_recordings(g3)
@@ -438,9 +437,7 @@ class G3App(App, ScreenManager):
         async def handle_added_recordings(child_added_queue: asyncio.Queue[SignalBody]):
             while True:
                 uuid = cast(str, await child_added_queue.get())[0]
-                recording = g3.recordings._children[
-                    uuid
-                ]  # add get_child(uuid) in recordings
+                recording = g3.recordings.get_recording(uuid)
                 recorder_screen.add_recording(
                     await recording.get_visible_name(), recording.uuid, recording
                 )
