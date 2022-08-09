@@ -17,6 +17,7 @@ requires-python = ">=3.10"
 dependencies = [
     "websockets ~= 10.3",
     "zeroconf ~= 0.38.7",
+    "aiortsp @ git+https://github.com/m4reko/aiortsp@master"
 ]
 dynamic = ["version", "description"]
 
