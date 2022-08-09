@@ -86,7 +86,7 @@ class G3Service:
             return None
         return f"rtsp://{self.hostname}:{self.rtsp_port}{self.rtsp_live_path}"
 
-    async def request(self, zc: Zeroconf, timeout: float = 3) -> None:
+    async def request(self, zc: Zeroconf, timeout: float = 3000) -> None:
         success = await self.service_info.async_request(zc, timeout)
         if not success:
             raise ServiceNotFoundError
@@ -123,7 +123,7 @@ class EventKind(Enum):
 
 
 class _G3ServicesHandler(ServiceListener):
-    def __init__(self, zc: Zeroconf, timeout: float = 3) -> None:
+    def __init__(self, zc: Zeroconf, timeout: float = 3000) -> None:
         self.zc = zc
         self._services: Dict[str, G3Service] = dict()
         self._events: asyncio.Queue[Tuple[EventKind, G3Service]] = asyncio.Queue()
@@ -208,7 +208,7 @@ class G3ServiceDiscovery:
 
     @classmethod
     @asynccontextmanager
-    async def listen(cls, timeout: float = 3) -> AsyncIterator[G3ServiceDiscovery]:
+    async def listen(cls, timeout: float = 3000) -> AsyncIterator[G3ServiceDiscovery]:
         async with AsyncZeroconf() as async_zeroconf:
             async with _G3ServicesHandler(
                 async_zeroconf.zeroconf, timeout
@@ -231,7 +231,7 @@ class G3ServiceDiscovery:
         return list(self._services_handler.services.values())
 
     @staticmethod
-    async def request_service(hostname: str, timeout: float = 3) -> G3Service:
+    async def request_service(hostname: str, timeout: float = 3000) -> G3Service:
         """Request information about a single specific service identified by its hostname.
         Raises `ServiceNotFoundError` when the service can't be found on the network."""
         service = G3Service.from_hostname(hostname)
