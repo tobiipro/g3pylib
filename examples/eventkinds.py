@@ -8,8 +8,9 @@ class ControlEventKind(Enum):
 
 
 class AppEventKind(Enum):
-    CONNECT = auto()
-    DISCONNECT = auto()
+    ENTER_CONTROL_SESSION = auto()
+    LEAVE_CONTROL_SESSION = auto()
+    STOP_CONTROL = auto()
     START_DISCOVERY = auto()
     STOP_DISCOVERY = auto()
     STOP = auto()
