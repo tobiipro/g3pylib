@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from enum import Enum, auto
 from typing import Awaitable, Dict, Iterable, List, Tuple, Union, cast
 
 from glasses3 import utils
@@ -10,12 +11,20 @@ from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 
+class RecordingsEventKind(Enum):
+    ADDED = auto()
+    REMOVED = auto()
+
+
 class Recordings(APIComponent):
     def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
         self._connection = connection
         self._children = {}
         self._handle_child_added_task = None
         self._handle_child_removed_task = None
+        self._events: asyncio.Queue[
+            Tuple[RecordingsEventKind, SignalBody]
+        ] = asyncio.Queue()
         self.logger = logging.getLogger(__name__)
         super().__init__(api_uri)
 
@@ -86,17 +95,21 @@ class Recordings(APIComponent):
             added_children_queue: asyncio.Queue[SignalBody],
         ) -> None:
             while True:
-                child_uuid = cast(List[str], await added_children_queue.get())[0]
+                body = await added_children_queue.get()
+                child_uuid = cast(List[str], body)[0]
                 self._children[child_uuid] = Recording(
                     self._connection, self._api_uri, child_uuid
                 )
+                await self._events.put((RecordingsEventKind.ADDED, body))
 
         async def handle_child_removed_task(
             removed_children_queue: asyncio.Queue[SignalBody],
         ) -> None:
             while True:
-                child_uuid = cast(List[str], await removed_children_queue.get())[0]
+                body = await removed_children_queue.get()
+                child_uuid = cast(List[str], body)[0]
                 del self._children[child_uuid]
+                await self._events.put((RecordingsEventKind.REMOVED, body))
 
         if (
             self._handle_child_added_task is None
@@ -151,6 +164,10 @@ class Recordings(APIComponent):
             self.logger.warning(
                 "Attempted stopping children handlers before starting them."
             )  # TODO: other type of warning?
+
+    @property
+    def events(self) -> asyncio.Queue[Tuple[RecordingsEventKind, SignalBody]]:
+        return self._events
 
     @property
     def children(self) -> List[Recording]:
