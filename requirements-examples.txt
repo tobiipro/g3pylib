@@ -1,0 +1,2 @@
+python-dotenv
+kivy ~= 2.1.0
