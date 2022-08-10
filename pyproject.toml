@@ -4,7 +4,10 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "g3pylib"
-authors = [{name = "Markus Wesslén", email = "mw2013@tobii.com"}, {name = "Oskar Söderberg", email = "os2012@tobii.com"}]
+authors = [
+    {name = "Markus Wesslén", email = "mw2013@tobii.com"},
+    {name = "Oskar Söderberg", email = "os2012@tobii.com"}
+]
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -20,6 +23,21 @@ dependencies = [
     "aiortsp @ git+https://github.com/m4reko/aiortsp@master"
 ]
 dynamic = ["version", "description"]
+
+[project.optional-dependencies]
+test = [
+    "python-dotenv",
+    "pytest",
+    "pytest-dotenv",
+    "pytest-asyncio"
+]
+doc = ["pdoc"]
+dev = [
+    "isort",
+    "black"
+]
+examples = ["python-dotenv"]
+example-app = ["kivy ~= 2.1.0"]
 
 [project.urls]
 Home = "https://github.com/tobiipro/g3pylib"
