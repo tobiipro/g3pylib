@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from http.client import CONTINUE
 
 
 class ControlEventKind(Enum):
@@ -10,9 +11,5 @@ class ControlEventKind(Enum):
 class AppEventKind(Enum):
     ENTER_CONTROL_SESSION = auto()
     LEAVE_CONTROL_SESSION = auto()
-    STOP_CONTROL = auto()
     START_DISCOVERY = auto()
-    STOP_DISCOVERY = auto()
     STOP = auto()
-    STOP_HANDLE_CONTROL_EVENTS = auto()
-    START_HANDLE_CONTROL_EVENTS = auto()

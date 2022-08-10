@@ -245,11 +245,6 @@ class G3App(App, ScreenManager):
         self.send_app_event(AppEventKind.START_DISCOVERY)
 
     def close(self, *args) -> bool:
-        match self.current:
-            case "discovery":
-                self.send_app_event(AppEventKind.STOP_DISCOVERY)
-            case "control":
-                self.send_app_event(AppEventKind.STOP_CONTROL)
         self.send_app_event(AppEventKind.STOP)
         return True
 
@@ -293,24 +288,28 @@ class G3App(App, ScreenManager):
 
     async def backend_app(self) -> None:
         while True:
-            await self.handle_app_event(await self.app_events.get())
+            app_event = await self.app_events.get()
+            await self.handle_app_event(app_event)
+            if app_event == AppEventKind.STOP:
+                break
 
     async def handle_app_event(self, event: AppEventKind):
         logging.info(f"Handling app event: {event}")
         match event:
             case AppEventKind.START_DISCOVERY:
                 self.start_discovery()
-            case AppEventKind.STOP_DISCOVERY:
-                await self.stop_discovery()
             case AppEventKind.ENTER_CONTROL_SESSION:
                 self.start_control()
                 await self.stop_discovery()
             case AppEventKind.LEAVE_CONTROL_SESSION:
                 self.start_discovery()
                 await self.stop_control()
-            case AppEventKind.STOP_CONTROL:
-                await self.stop_control()
             case AppEventKind.STOP:
+                match self.current:
+                    case "discovery":
+                        await self.stop_discovery()
+                    case "control":
+                        await self.stop_control()
                 self.stop()
 
     async def backend_discovery(self) -> None:
@@ -354,25 +353,6 @@ class G3App(App, ScreenManager):
                     await self.cancel_task(update_recordings_task)
                     await self.stop_update_recorder_status()
 
-    async def update_recordings(self, g3, recordings_events):
-        recorder_screen = self.get_screen("control").ids.sm.get_screen("recorder")
-        for child in cast(List[Recording], g3.recordings):
-            recorder_screen.add_recording(
-                await child.get_visible_name(), child.uuid, child, atEnd=True
-            )
-        while True:
-            event = await recordings_events.get()
-            match event:
-                case (RecordingsEventKind.ADDED, body):
-                    uuid = cast(List[str], body)[0]
-                    recording = g3.recordings.get_recording(uuid)
-                    recorder_screen.add_recording(
-                        await recording.get_visible_name(), recording.uuid, recording
-                    )
-                case (RecordingsEventKind.REMOVED, body):
-                    uuid = cast(List[str], body)[0]
-                    recorder_screen.remove_recording(uuid)
-
     async def handle_control_event(self, g3: Glasses3, event: ControlEventKind) -> None:
         logging.info(f"Handling control event: {event}")
         self.get_screen("control").set_task_running_status(True)
@@ -402,6 +382,25 @@ class G3App(App, ScreenManager):
                 .ids.recordings.data[selected[0]]["uuid"]
             )
             await g3.recordings.delete(uuid)
+
+    async def update_recordings(self, g3, recordings_events):
+        recorder_screen = self.get_screen("control").ids.sm.get_screen("recorder")
+        for child in cast(List[Recording], g3.recordings):
+            recorder_screen.add_recording(
+                await child.get_visible_name(), child.uuid, child, atEnd=True
+            )
+        while True:
+            event = await recordings_events.get()
+            match event:
+                case (RecordingsEventKind.ADDED, body):
+                    uuid = cast(List[str], body)[0]
+                    recording = g3.recordings.get_recording(uuid)
+                    recorder_screen.add_recording(
+                        await recording.get_visible_name(), recording.uuid, recording
+                    )
+                case (RecordingsEventKind.REMOVED, body):
+                    uuid = cast(List[str], body)[0]
+                    recorder_screen.remove_recording(uuid)
 
     async def start_update_recorder_status(self, g3: Glasses3) -> None:
         recorder_screen = self.get_screen("control").ids.sm.get_screen("recorder")
