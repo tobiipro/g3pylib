@@ -296,6 +296,7 @@ class G3App(App, ScreenManager):
             await self.handle_app_event(await self.app_events.get())
 
     async def handle_app_event(self, event: AppEventKind):
+        logging.info(f"Handling app event: {event}")
         match event:
             case AppEventKind.START_DISCOVERY:
                 self.start_discovery()
@@ -318,6 +319,7 @@ class G3App(App, ScreenManager):
                 await self.handle_service_event(await service_listener.events.get())
 
     async def handle_service_event(self, event: Tuple[EventKind, G3Service]) -> None:
+        logging.info(f"Handling service event: {event[0]}")
         match event:
             case (EventKind.ADDED, service):
                 self.get_screen("discovery").add_service(
@@ -372,6 +374,7 @@ class G3App(App, ScreenManager):
                     recorder_screen.remove_recording(uuid)
 
     async def handle_control_event(self, g3: Glasses3, event: ControlEventKind) -> None:
+        logging.info(f"Handling control event: {event}")
         self.get_screen("control").set_task_running_status(True)
         match event:
             case ControlEventKind.START_RECORDING:
@@ -398,7 +401,6 @@ class G3App(App, ScreenManager):
                 .ids.sm.get_screen("recorder")
                 .ids.recordings.data[selected[0]]["uuid"]
             )
-            print(uuid)
             await g3.recordings.delete(uuid)
 
     async def start_update_recorder_status(self, g3: Glasses3) -> None:
@@ -447,7 +449,7 @@ class G3App(App, ScreenManager):
 
     def create_task(self, coro, name=None) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
-        print(f"task {task.get_name()} created")
+        logging.info(f"Task created: {task.get_name()}")
         self.tasks.add(task)
         task.add_done_callback(self.tasks.remove)
         return task
@@ -457,7 +459,7 @@ class G3App(App, ScreenManager):
         try:
             await task
         except asyncio.CancelledError:
-            print(f"task {task.get_name()} cancelled")
+            logging.info(f"Task cancelled: {task.get_name()}")
 
 
 if __name__ == "__main__":
