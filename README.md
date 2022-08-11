@@ -1,14 +1,20 @@
-# Glasses3
+# g3pylib
+A Python client for Glasses3. It handles all the low level details of communication with the Glasses3 websocket API and exposes a Python API which includes all the endpoints in the websocket API of the Glasses3 as well as some extra convenience methods. It also implements streaming with RTSP and service discovery with Zeroconf.
 
-A Python wrapper for the Glasses3 API
+## Installation
+To install this package, clone it and use either
 
-## Contributing
-### Logging
-To get more DEBUG logs from asyncio, set the environment variable PYTHONDEVMODE:
+`flit install`
 
-```$env:PYTHONDEVMODE = 1```
+or
 
-### Environment
+`pip install .`
+
+To run examples or tests you need some extra dependencies which are installed by default with the `flit` command. If you are using `pip` the extra dependencies can be installed alongside the library with
+
+`pip install '.[test, examples, example-app]'`
+
+## Environment
 The tests and examples load the glasses hostname, which by default is the serial number, from the `.env` file in the project root folder.
 See example content below:
 
@@ -16,102 +22,12 @@ See example content below:
 G3_HOSTNAME=tg03b-080200045321
 ```
 
-### Docstrings
-Docstrings is used to document code according to the following template:
+You can also specify this variable directly in your environment.
 
-```python
-"""Module summary
+## Examples
+The [example folder](examples) contains a few smaller examples showcasing different use cases of the library as well as a larger controller application with a simple GUI.
 
-More in-depth information of the module. This docstring is placed at the top of the file, over the imports.
-"""
-import asyncio
+## Contributing
+More information on how to contribute to this project can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-def my_simple_function(arg_1: str, arg_2: int):
-    """Summary of my_simple_function.
-
-    Takes in a name and number.
-
-    Returns a pair of glasses.
-
-    """
-    pass
-
-def my_long_function(arg_1: str, arg_2: int):
-    """Summary of my_simple_function.
-
-    ###### Args
-    - `arg_1`: The first argument.
-    - `arg_2`: The second argument.
-
-    ###### Returns
-    Something you want to use.
-
-    ###### Raises
-    - `MyError`: An error indicating some error.
-    """
-    pass
-
-
-class MyClass:
-    """Summary of MyClass, max 80 characters long.
-
-    Some more in-depth information about MyClass.
-    """
-
-    variable_1: str
-    """The first variable"""
-
-    variable_2: int
-    """The second variable"""
-
-    def __init__(arg_1: str):
-        """Initializes object, where arg_1 is your `variable_1`."""
-        self.variable_1 = arg_1
-
-    def my_simple_method(arg_1: str, arg_2: int):
-        """Summary of my_simple_method.
-
-        Takes in a name and number.
-
-        Returns something simple.
-        """
-        pass
-
-    def my_long_method(arg_1: str, arg_2: int):
-        """
-        Summary of my_long_method.
-
-        Some more in-depth information about my_long_method.
-
-        ###### Args
-        - `arg_1`: The first argument.
-        - `arg_2`: The second argument.
-
-        ###### Returns
-        Something you want to use.
-
-        ###### Raises
-        - `MyError`: An error indicating some error.
-        """
-        pass
-
-class MyAdvancedClass:
-    """Summary of MyAdvancedClass, max 80 characters long.
-
-    Some more in-depth information about MyClass.
-    """
-
-    def __init__(arg_1: str, arg_2: int):
-        """Initializes object.
-
-        ###### Args
-        - `arg_1`: The first argument.
-        - `arg_2`: The second argument.
-
-        ###### Raises
-        - `MyError`: An error indicating some error.
-
-        """
-        pass
-
-```
+It contains developer guidelines as well as information on how to run tests and enable logging.
