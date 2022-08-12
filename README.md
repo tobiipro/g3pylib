@@ -1,5 +1,5 @@
 # g3pylib
-**This library is still in beta.**
+**This library is still in alpha. It's not yet feature complete.**
 
 A Python client for Glasses3. It handles all the low level details of communication with the Glasses3 websocket API and exposes a Python API which includes all the endpoints in the websocket API of the Glasses3 as well as some extra convenience methods. It also implements streaming with RTSP and service discovery with Zeroconf.
 

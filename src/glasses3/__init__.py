@@ -134,7 +134,7 @@ class Glasses3(APIComponent):
                         cv2.waitKey(1)
         ```
 
-        *Beta version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
+        *Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
         """
         async with Streams.connect(
             self.rtsp_url,
