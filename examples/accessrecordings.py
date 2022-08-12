@@ -16,12 +16,13 @@ async def access_recordings():
                 f"Recordings before: {list(map(lambda r: r.uuid, g3.recordings.children))}"
             )
             await g3.recorder.start()
+            logging.info("Creating new recording")
             await asyncio.sleep(3)
             await g3.recorder.stop()
             logging.info(
                 f"Recordings after: {list(map(lambda r: r.uuid, g3.recordings.children))}"
             )
-            creation_time = g3.recordings[0].get_created()
+            creation_time = await g3.recordings[0].get_created()
             logging.info(f"Creation time of last recording in UTC: {creation_time}")
 
 
