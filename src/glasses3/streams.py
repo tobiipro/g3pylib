@@ -28,7 +28,7 @@ from dpkt.rtp import RTP  # type: ignore
 
 from glasses3 import utils
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class StreamType(Enum):
@@ -126,7 +126,7 @@ class NALUnit:
         return nal_unit
 
     @classmethod
-    def from_fu_a(cls, fu_a: FUA):
+    def from_fu_a(cls, fu_a: FUA) -> NALUnit:
         header = fu_a.header & (cls._F_MASK | cls._NRI_MASK) | fu_a.original_type
         data = bytearray()
         data.append(header)

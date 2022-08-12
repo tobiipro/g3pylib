@@ -15,7 +15,7 @@ class Recording(APIComponent):
         super().__init__(URI(f"{api_base_uri}/{uuid}"))
 
     @property
-    def uuid(self):
+    def uuid(self) -> str:
         return self._uuid
 
     async def get_created(self) -> datetime:

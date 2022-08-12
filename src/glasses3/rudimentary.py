@@ -13,7 +13,7 @@ class Rudimentary(APIComponent):
     def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
         self._connection = connection
         self._streams_started = asyncio.Event()
-        self.logger = logging.getLogger(__name__)
+        self.logger: logging.Logger = logging.getLogger(__name__)
         self._keepalive_task = None
         super().__init__(api_uri)
 
@@ -82,6 +82,7 @@ class Rudimentary(APIComponent):
     async def start_streams(self) -> None:
         async def keepalive_task():
             while True:
+                self.logger.info("Sending keepalive")
                 success = await self.keepalive()
                 self._streams_started.set()
                 if not success:
@@ -99,7 +100,7 @@ class Rudimentary(APIComponent):
             try:
                 await self._keepalive_task
             except asyncio.CancelledError:
-                self.logger.debug("keepalive task cancelled")
+                self.logger.debug("Keepalive task cancelled")
             finally:
                 self._streams_started.clear()
                 self._keepalive_task = None

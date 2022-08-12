@@ -12,7 +12,7 @@ async def recording(g3: Glasses3):
     await g3.recorder.start()
     uuid = cast(str, await g3.recorder.get_uuid())
     await g3.recorder.stop()
-    yield cast(Recording, g3.recordings[0])
+    yield g3.recordings[0]
     await g3.recordings.delete(uuid)
 
 

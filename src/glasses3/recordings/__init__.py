@@ -1,8 +1,9 @@
 import asyncio
 import logging
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from enum import Enum, auto
-from typing import Awaitable, Dict, Iterable, List, Tuple, Union, cast
+from typing import Awaitable, Dict, List, Tuple, Union, cast, overload
 
 from glasses3 import utils
 from glasses3.g3typing import URI, SignalBody
@@ -16,7 +17,7 @@ class RecordingsEventKind(Enum):
     REMOVED = auto()
 
 
-class Recordings(APIComponent):
+class Recordings(APIComponent, Sequence[Recording]):
     def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
         self._connection = connection
         self._children = {}
@@ -25,7 +26,7 @@ class Recordings(APIComponent):
         self._events: asyncio.Queue[
             Tuple[RecordingsEventKind, SignalBody]
         ] = asyncio.Queue()
-        self.logger = logging.getLogger(__name__)
+        self.logger: logging.Logger = logging.getLogger(__name__)
         super().__init__(api_uri)
 
     async def get_name(self) -> str:
@@ -90,7 +91,7 @@ class Recordings(APIComponent):
             )
         )
 
-    async def start_children_handler_tasks(self):
+    async def start_children_handler_tasks(self) -> None:
         async def handle_child_added_task(
             added_children_queue: asyncio.Queue[SignalBody],
         ) -> None:
@@ -141,7 +142,7 @@ class Recordings(APIComponent):
                 "Attempted starting children handlers when already started."
             )  # TODO: other type of warning?
 
-    async def stop_children_handler_tasks(self):
+    async def stop_children_handler_tasks(self) -> None:
         if (
             self._handle_child_added_task is not None
             and self._handle_child_removed_task is not None
@@ -171,21 +172,27 @@ class Recordings(APIComponent):
 
     @property
     def children(self) -> List[Recording]:
-        """This property is not recommended for use since the object itself has functionality of a list. See `__iter__` and `__getitem__` methods."""
+        """This property is not recommended for use since the object itself has functionality of a
+        [`collections.abc.Sequence`](https://docs.python.org/3/library/collections.abc.html).
+        """
         return list(reversed(self._children.values()))
 
     def get_recording(self, uuid: str) -> Recording:
         return self._children[uuid]
 
-    def __iter__(self) -> Iterable[Recording]:
-        yield from reversed(self._children.values())
-
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._children)
 
+    @overload
+    def __getitem__(self, key: int) -> Recording:
+        ...
+
+    @overload
+    def __getitem__(self, key: slice) -> List[Recording]:
+        ...
+
     def __getitem__(self, key: Union[int, slice]) -> Union[Recording, List[Recording]]:
-        children_list_reversed = list(reversed(self._children.values()))
-        return children_list_reversed[key]
+        return list(reversed(self._children.values()))[key]
 
     @asynccontextmanager
     async def keep_updated_in_context(self):

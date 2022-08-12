@@ -14,7 +14,7 @@ class System(APIComponent):
         super().__init__(api_uri)
 
     @property
-    def battery(self):
+    def battery(self) -> Battery:
         if self._battery is None:
             self._battery = Battery(self._connection, URI(self._api_uri + "/battery"))
         return self._battery

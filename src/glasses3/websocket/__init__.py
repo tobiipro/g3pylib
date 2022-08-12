@@ -116,7 +116,7 @@ class SignalSubscriptionHandler(ABC):
                 )
             del self._signal_id_by_uri[signal_uri]
 
-    def receive_signal(self, signal_id: SignalId, signal_body: SignalBody):
+    def receive_signal(self, signal_id: SignalId, signal_body: SignalBody) -> None:
         """Passes on received signal message body with the specified `signal_id` to all
         subscribed queues."""
 
@@ -147,7 +147,7 @@ class G3WebSocketClientProtocol(
         self, *, subprotocols: Optional[List[Subprotocol]] = None, **kwargs: Any
     ):
         """Initializes super class properties and additional properties needed for the communication."""
-        self.g3_logger = logging.getLogger(__name__)
+        self.g3_logger: logging.Logger = logging.getLogger(__name__)
         self._message_count = 0
         self._future_messages: Dict[MessageId, asyncio.Future[JSONObject]] = {}
         self._event_loop = asyncio.get_running_loop()
@@ -255,7 +255,7 @@ class G3WebSocketClientProtocol(
         """Generates a POST request."""
         return {"path": cast(str, uri), "method": "POST", "body": body}
 
-    async def close(self, code: int = 1000, reason: str = ""):
+    async def close(self, code: int = 1000, reason: str = "") -> None:
         if self._receiver_task is not None:
             self._receiver_task.cancel()
             try:
