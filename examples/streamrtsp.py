@@ -17,8 +17,8 @@ async def stream_rtsp():
                 for _ in range(300):
                     frame = await decoded_stream.get()
                     image = frame.to_ndarray(format="bgr24")
-                    cv2.imshow("Video", image)
-                    cv2.waitKey(1)
+                    cv2.imshow("Video", image)  # type: ignore
+                    cv2.waitKey(1)  # type: ignore
                 logging.debug(streams.scene_camera.stats)
 
 

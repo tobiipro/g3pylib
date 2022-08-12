@@ -156,6 +156,6 @@ class Recording(APIComponent):
         )
 
     @property
-    def uuid(self):
+    def uuid(self) -> str:
         """The uuid of the recording."""
         return self._uuid
