@@ -47,8 +47,8 @@ name = "glasses3"
 
 [tool.pyright]
 include = ["src", "examples", "tests"]
-typeCheckingMode = ["basic"]
-strict = ["src", "examples/testusecase.py", "tests"]
+typeCheckingMode = "basic"
+strict = ["src", "tests"]
 
 [tool.isort]
 profile = "black"
