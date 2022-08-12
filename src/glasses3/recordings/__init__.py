@@ -5,16 +5,20 @@ from contextlib import asynccontextmanager
 from enum import Enum, auto
 from typing import Awaitable, Dict, List, Tuple, Union, cast, overload
 
-from glasses3 import utils
+from glasses3 import _utils
+from glasses3._utils import APIComponent, EndpointKind
 from glasses3.g3typing import URI, SignalBody
 from glasses3.recordings.recording import Recording
-from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 
 class RecordingsEventKind(Enum):
+    """Defines event kinds for the `Recordings` class. These events are emitted to the `Recordings.events` queue in the context `Recordings.keep_updated_in_context`."""
+
     ADDED = auto()
+    """A recording was added."""
     REMOVED = auto()
+    """A recording was removed."""
 
 
 class Recordings(APIComponent, Sequence[Recording]):
@@ -129,11 +133,11 @@ class Recordings(APIComponent, Sequence[Recording]):
             ) = await self._connection.subscribe_to_signal(
                 self.generate_endpoint_uri(EndpointKind.SIGNAL, "child-removed")
             )
-            self._handle_child_added_task = utils.create_task(
+            self._handle_child_added_task = _utils.create_task(
                 handle_child_added_task(added_children_queue),
                 name="child_added_handler",
             )
-            self._handle_child_removed_task = utils.create_task(
+            self._handle_child_removed_task = _utils.create_task(
                 handle_child_removed_task(removed_children_queue),
                 name="child_removed_handler",
             )
@@ -168,16 +172,23 @@ class Recordings(APIComponent, Sequence[Recording]):
 
     @property
     def events(self) -> asyncio.Queue[Tuple[RecordingsEventKind, SignalBody]]:
+        """The event queue containing added and removed recording events.
+
+        Is updated in the context `keep_updated_in_context`."""
         return self._events
 
     @property
     def children(self) -> List[Recording]:
-        """This property is not recommended for use since the object itself has functionality of a
+        """A list of all current recordings.
+
+        This property is not recommended for use since the object itself has functionality of a
         [`collections.abc.Sequence`](https://docs.python.org/3/library/collections.abc.html).
-        """
+
+        Is updated in the context `keep_updated_in_context`."""
         return list(reversed(self._children.values()))
 
     def get_recording(self, uuid: str) -> Recording:
+        """Returns the recording specified by `uuid`."""
         return self._children[uuid]
 
     def __len__(self) -> int:
@@ -196,6 +207,7 @@ class Recordings(APIComponent, Sequence[Recording]):
 
     @asynccontextmanager
     async def keep_updated_in_context(self):
+        """Keep the `Recordings` state continuously updated in the context by listening for added and removed recordings."""
         await self.start_children_handler_tasks()
         try:
             yield

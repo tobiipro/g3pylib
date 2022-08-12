@@ -13,7 +13,7 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
-from glasses3 import utils
+from glasses3 import _utils
 from glasses3.g3typing import (
     URI,
     JSONDict,
@@ -76,6 +76,14 @@ class SignalSubscriptionHandler(ABC):
 
         Returns a tuple with a queue and an awaitable. Upon receiving signals messages, the message
         body is added to the queue. The awaitable can be awaited to unsubscribe to the signal.
+
+        Example usage to handle the gaze signal in the rudimentary component:
+
+        ```
+        queue, unsubscribe = await g3.rudimentary.subscribe_to_gaze()
+        # handle gaze signals in queue
+        await unsubscribe
+        ```
         """
         self._subscription_count += 1
         signal_id = self._signal_id_by_uri.get(signal_uri)
@@ -116,7 +124,7 @@ class SignalSubscriptionHandler(ABC):
                 )
             del self._signal_id_by_uri[signal_uri]
 
-    def receive_signal(self, signal_id: SignalId, signal_body: SignalBody) -> None:
+    def _receive_signal(self, signal_id: SignalId, signal_body: SignalBody) -> None:
         """Passes on received signal message body with the specified `signal_id` to all
         subscribed queues."""
 
@@ -141,6 +149,14 @@ class SignalSubscriptionHandler(ABC):
 class G3WebSocketClientProtocol(
     websockets.client.WebSocketClientProtocol, SignalSubscriptionHandler
 ):
+    """
+    WebSocket connection to a Glasses3 device.
+
+    Provides `require_get`, `require_post` and `require` methods for sending and receiving messages. Note that `start_receiver_task` must be called for require calls to return responses.
+
+    Also keeps track of signal subscriptions on the websocket.
+    """
+
     DEFAULT_SUBPROTOCOLS = [Subprotocol("g3api")]
 
     def __init__(
@@ -193,7 +209,7 @@ class G3WebSocketClientProtocol(
                             message_body
                         )
                     case {"signal": signal_id, "body": signal_body}:
-                        self.receive_signal(
+                        self._receive_signal(
                             cast(SignalId, signal_id), cast(SignalBody, signal_body)
                         )
                     case _:
@@ -201,7 +217,7 @@ class G3WebSocketClientProtocol(
                         raise InvalidResponseError
 
         self.g3_logger.debug("Receiver task starting")
-        self._receiver_task = utils.create_task(receiver_task(), name="receiver")
+        self._receiver_task = _utils.create_task(receiver_task(), name="receiver")
 
     async def require(self, request: JSONDict) -> JSONObject:
         """Sends a request  with a unique id and returns the body of the response with the same id."""
@@ -229,7 +245,7 @@ class G3WebSocketClientProtocol(
     ) -> JSONObject:
         """Sends a POST request and returns the body of the response.
 
-        The default body is an empty list"""
+        The default body is an empty list."""
         return await self.require(self.generate_post_request(uri, body))
 
     async def _require_post_subscribe(self, signal_uri: URI) -> SignalId:
@@ -256,6 +272,7 @@ class G3WebSocketClientProtocol(
         return {"path": cast(str, uri), "method": "POST", "body": body}
 
     async def close(self, code: int = 1000, reason: str = "") -> None:
+        """Cancel the receiver task and perform the closing handshake for the websocket."""
         if self._receiver_task is not None:
             self._receiver_task.cancel()
             try:
