@@ -5,12 +5,13 @@
 - `pyright` for type checking
 - `black` for formatting
 - `isort` for import sorting
+- `pdoc` for generating documentation
 
 ## Tests
 Tests are implemented using [`pytest`](https://docs.pytest.org/en/7.1.x/) and you run them with the command `pytest` while being in the root directory.
 
 ## Logging
-Logging is implemented using [`logging`](https://docs.python.org/3/library/logging.html). To get logging messages of a specific level, initialize logging with the following lines:
+Logging is implemented using [`logging`](https://docs.python.org/3/library/logging.html). To get logging messages of a specific level, initialize logging in the implementing code with the following lines:
 
 ```python
 import logging
