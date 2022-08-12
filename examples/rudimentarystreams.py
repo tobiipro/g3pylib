@@ -18,10 +18,12 @@ async def subscribe_to_signal():
             count = 0
             while True:
                 imu_message = await imu_queue.get()
+                if count == 0:
+                    logging.info("Receiving IMU stream")
                 count += 1
                 if count % 300 == 0:
-                    logging.info(f"Received {count} messages")
-                    logging.info(f"Message snapshot: {imu_message}")
+                    logging.info(f"Received {count} IMU messages")
+                    logging.info(f"IMU message snapshot: {imu_message}")
                 imu_queue.task_done()
 
         await g3.rudimentary.start_streams()
