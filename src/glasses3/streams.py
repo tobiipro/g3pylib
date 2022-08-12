@@ -1,10 +1,13 @@
+"""
+*Beta version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far. No time sync functionality is implemented.
+"""
+
 from __future__ import annotations
 
 import asyncio
 import functools
 import logging
 from abc import ABC, abstractmethod, abstractproperty
-from concurrent.futures import ProcessPoolExecutor
 from contextlib import AsyncExitStack, asynccontextmanager
 from enum import Enum, auto
 from functools import cached_property
@@ -26,12 +29,14 @@ from aiortsp.transport import (  # type: ignore
 )
 from dpkt.rtp import RTP  # type: ignore
 
-from glasses3 import utils
+from glasses3 import _utils
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 class StreamType(Enum):
+    """Defines the different stream types in an RTSP stream."""
+
     SCENE_CAMERA = auto()
     AUDIO = auto()
     EYE_CAMERAS = auto()
@@ -42,6 +47,7 @@ class StreamType(Enum):
 
     @property
     def property_name(self) -> str:
+        """The stream type's property name as a string."""
         match self:
             case StreamType.SCENE_CAMERA:
                 return "scene_camera"
@@ -81,45 +87,46 @@ class NALUnit:
     _R_SHIFT = 5
 
     data: bytearray
-    """Header and payload"""
+    """Header and payload."""
 
     def __init__(self, data: Union[bytes, bytearray, memoryview]) -> None:
         self.data = bytearray(data)
 
     @cached_property
     def f(self) -> int:
-        """Forbidden zero bit"""
+        """Forbidden zero bit."""
         return (self.header & self._F_MASK) >> self._F_SHIFT
 
     @cached_property
     def nri(self) -> int:
-        """NAL ref IDC"""
+        """NAL ref IDC."""
         return (self.header & self._NRI_MASK) >> self._NRI_SHIFT
 
     @cached_property
     def type(self) -> int:
-        """NAL unit type"""
+        """NAL unit type."""
         return (self.header & self._TYPE_MASK) >> self._TYPE_SHIFT
 
     @cached_property
     def header(self) -> int:
-        """The header of the NAL unit or FU indicator in the case of a fragamentation unit"""
+        """The header of the NAL unit or FU indicator in the case of a fragmentation unit."""
         return self.data[0]
 
     @property
     def payload(self) -> bytes:
-        """The payload of the NAL unit"""
+        """The payload of the NAL unit."""
         if isinstance(self, FUA):
             return self.data[2:]
         return self.data[1:]
 
     @property
     def data_with_prefix(self) -> bytes:
-        """The header and payload of the NAL unit with start code prefix prepended"""
+        """The header and payload of the NAL unit with start code prefix prepended."""
         return self._START_CODE_PREFIX + self.data
 
     @classmethod
     def from_rtp_payload(cls, rtp_payload: bytes) -> NALUnit:
+        """Constructs `NALUnit` from an rtp payload."""
         nal_unit = cls(rtp_payload)
         if nal_unit.type == 28:
             return FUA(rtp_payload)
@@ -127,6 +134,9 @@ class NALUnit:
 
     @classmethod
     def from_fu_a(cls, fu_a: FUA) -> NALUnit:
+        """Constructs `NALUnit` from an FUA.
+
+        Note that fragmented NAL unit payloads must be aggregated before they can get parsed."""
         header = fu_a.header & (cls._F_MASK | cls._NRI_MASK) | fu_a.original_type
         data = bytearray()
         data.append(header)
@@ -140,26 +150,28 @@ class FUA(NALUnit):
 
     @cached_property
     def s(self) -> int:
-        """Start bit for fragmentation unit"""
+        """Start bit for fragmentation unit."""
         return (self.fu_header & self._S_MASK) >> self._S_SHIFT
 
     @cached_property
     def e(self) -> int:
-        """End bit for fragmentation unit"""
+        """End bit for fragmentation unit."""
         return (self.fu_header & self._E_MASK) >> self._E_SHIFT
 
     @cached_property
     def original_type(self) -> int:
-        """The type of the NAL unit contained in the fragmentation unit"""
+        """The type of the NAL unit contained in the fragmentation unit."""
         return (self.fu_header & self._TYPE_MASK) >> self._TYPE_SHIFT
 
     @cached_property
     def fu_header(self) -> int:
-        """The extra header in fragmentation units"""
+        """The extra header in fragmentation units."""
         return self.data[1]
 
 
 class Stream(RTPTransportClient, ABC):
+    """Abstract class for a RTSP media stream."""
+
     transport: RTPTransport
     rtp_queue: asyncio.Queue[RTP]
     rtcp_queue: asyncio.Queue[RTCP]
@@ -181,20 +193,27 @@ class Stream(RTPTransportClient, ABC):
 
     @abstractproperty
     def stats(self) -> Dict[str, int]:
+        """Should contain some media stream statistics. Used mainly for debugging purposes."""
         raise NotImplementedError
 
     @property
     def media_stream_configuration(self) -> MediaStreamConfiguration:
+        """A `MediaStreamConfiguration` for this media stream which is used for configuring the `RTSPMediaSession`"""
         return MediaStreamConfiguration(
             self.transport, self.media_type, self.media_index
         )
 
     @abstractproperty
     def media_type(self) -> MediaType:
+        """Should be the media type identifier of the `Stream` subclass."""
         raise NotImplementedError
 
     @property
     def media_index(self) -> int:
+        """The media index of the stream.
+
+        Every separate media stream in the RTSP media session is identified by its `media_type` and its `media_index`.
+        """
         match self.type:
             case StreamType.SCENE_CAMERA:
                 return 0
@@ -216,6 +235,10 @@ class Stream(RTPTransportClient, ABC):
     async def setup(
         cls, connection: RTSPConnection, stream_type: StreamType, scheme: str
     ) -> AsyncIterator[Stream]:
+        """The main entry point of a `Stream`.
+
+        Sets up a transport for RTP and RTCP packets and instantiates a `Stream` object containing the transport.
+        """
         transport_class = transport_for_scheme(scheme)
         async with transport_class(connection) as transport:
             yield cls(transport, stream_type)
@@ -223,19 +246,25 @@ class Stream(RTPTransportClient, ABC):
     @abstractmethod
     @asynccontextmanager
     async def demux(self) -> AsyncIterator[asyncio.Queue[Any]]:
+        """Should return a queue with the demuxed RTP stream."""
         raise NotImplementedError
         yield
 
     @abstractmethod
     @asynccontextmanager
     async def decode(self) -> AsyncIterator[asyncio.Queue[Any]]:
+        """Should return a queue with the demuxed and decoded RTP stream."""
         raise NotImplementedError
         yield
 
 
 class VideoStream(Stream):
+    """Represents a RTSP video stream.
+
+    Handles demuxing and decoding of video frames.
+    """
+
     _nal_unit_builder: NALUnit
-    process_pool: ProcessPoolExecutor
 
     def __init__(self, transport: RTPTransport, stream_type: StreamType) -> None:
         super().__init__(transport, stream_type)
@@ -248,10 +277,12 @@ class VideoStream(Stream):
 
     @property
     def media_type(self) -> MediaType:
+        """The media type identifier of a `VideoStream`."""
         return "video"
 
     @property
     def stats(self) -> Dict[str, int]:
+        """Contains some media stream statistics. Used mainly for debugging purposes."""
         return {
             "demux_in_count": self._demux_in_count,
             "demux_out_count": self._demux_out_count,
@@ -260,6 +291,10 @@ class VideoStream(Stream):
 
     @asynccontextmanager
     async def demux(self) -> AsyncIterator[asyncio.Queue[NALUnit]]:
+        """Returns a queue with the demuxed RTP stream.
+
+        Spawns a demuxer task which parses the NAL units received in the RTP payloads.
+        It also aggregates fragmentation units of larger NAL units sent in multiple RTP packets."""
         nal_unit_queue: asyncio.Queue[NALUnit] = asyncio.Queue(2)
 
         async def demuxer():
@@ -301,7 +336,7 @@ class VideoStream(Stream):
                 else:
                     logger.warning(f"Unhandled NAL unit of type {nal_unit.type}")
 
-        demuxer_task = utils.create_task(demuxer(), name="demuxer")
+        demuxer_task = _utils.create_task(demuxer(), name="demuxer")
         try:
             yield nal_unit_queue
         finally:
@@ -313,6 +348,12 @@ class VideoStream(Stream):
 
     @asynccontextmanager
     async def decode(self) -> AsyncIterator[asyncio.Queue[Any]]:
+        """Returns a queue with the demuxed and decoded RTP stream.
+
+        Spawns a decoder task which uses PyAV (ffmpeg) to parse and decode the demuxed NAL units.
+
+        The returned queue contains PyAVs `av.VideoFrame` objects.
+        """
         frame_queue: asyncio.Queue[Any] = asyncio.Queue(2)
 
         async def decoder():
@@ -336,7 +377,7 @@ class VideoStream(Stream):
                         await frame_queue.put(frame)
                         self._decode_count += 1
 
-        decoder_task = utils.create_task(decoder(), name="decoder")
+        decoder_task = _utils.create_task(decoder(), name="decoder")
         try:
             yield frame_queue
         finally:
@@ -348,6 +389,14 @@ class VideoStream(Stream):
 
 
 class Streams:
+    """Handles a `RTSPMediaSession` with one or multiple media streams.
+
+    Exposes a `connect` function which is used to set up an RTSP media session and create an instance of this object.
+    Gives easy access to the different streams.
+
+    After the setup process is completed, await the `play` coroutine to start the streaming.
+    """
+
     def __init__(self, session: RTSPMediaSession, streams: Set[Stream]) -> None:
         self.session = session
         self.streams: Dict[StreamType, Stream] = {
@@ -405,6 +454,7 @@ class Streams:
         imu: bool = False,
         events: bool = False,
     ) -> AsyncIterator[Streams]:
+        """Sets up an RTSP media session with the specified streams and creates an instance of `Streams`."""
         parsed_url = urlparse(rtsp_url)
         async with RTSPConnection(parsed_url.hostname, parsed_url.port) as connection:
             async with AsyncExitStack() as stack:
@@ -438,4 +488,5 @@ class Streams:
                     yield cls(session, streams)
 
     async def play(self) -> None:
+        """Starts the streaming in the RTSP media session."""
         await self.session.play()  # type: ignore

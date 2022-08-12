@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 from types import NoneType
 from typing import Awaitable, List, Optional, Tuple, cast
 
+from glasses3._utils import APIComponent, EndpointKind
 from glasses3.g3typing import URI, JSONObject, SignalBody
-from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 

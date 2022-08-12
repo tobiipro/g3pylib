@@ -1,4 +1,22 @@
-"""This is the g3pylib package root."""
+"""
+.. include:: ../../README.md
+
+g3pylib is a python wrapper around the Glasses3 web API which lets you control Glasses3 devices.
+
+## API Endpoints
+All endpoints in the `glasses3` module corresponding to an endpoint in the Glasses3 web API are undocumented and placed first in each module.
+The following naming convention is used to translate web API endpoint names to `glasses3` API endpoint names:
+ - Properties: example_property -> get_example_property/set_example_property
+ - Actions: example_action -> example_action
+ - Signals: example_signal -> subscribe_to_example_signal
+
+The web API endpoints can be browsed in the Glasses3 Example web client accessed via http://*your-g3-address*.
+
+## Useful information
+In any code examples, `g3` will be a connected instance of `Glasses3`.
+
+The default hostname of a Glasses3 device is its serial number.
+"""
 from __future__ import annotations
 
 import logging
@@ -7,6 +25,7 @@ from types import TracebackType
 from typing import Any, AsyncIterator, Generator, Optional, Type, cast
 
 import glasses3.websocket
+from glasses3._utils import APIComponent
 from glasses3.calibrate import Calibrate
 from glasses3.g3typing import URI, LoggerLike
 from glasses3.recorder import Recorder
@@ -15,7 +34,6 @@ from glasses3.rudimentary import Rudimentary
 from glasses3.settings import Settings
 from glasses3.streams import Streams
 from glasses3.system import System
-from glasses3.utils import APIComponent
 from glasses3.websocket import G3WebSocketClientProtocol
 from glasses3.zeroconf import G3Service, G3ServiceDiscovery
 
@@ -23,6 +41,15 @@ __version__ = "0.1.0-alpha"
 
 
 class Glasses3(APIComponent):
+    """
+    Represents a Glasses3 device.
+
+    Holds the API components and a WebSocket connection to a Glasses3 device.
+    The `stream_rtsp` context can be used for live stream functionality.
+
+    For the recommended way to create a connected instance of Glasses3, see `connect_to_glasses`.
+    """
+
     def __init__(
         self,
         connection: G3WebSocketClientProtocol,
@@ -79,6 +106,7 @@ class Glasses3(APIComponent):
 
     @property
     def rtsp_url(self) -> str:
+        """The RTSP URL used for live stream."""
         return self._rtsp_url
 
     @asynccontextmanager
@@ -92,6 +120,22 @@ class Glasses3(APIComponent):
         imu: bool = False,
         events: bool = False,
     ) -> AsyncIterator[Streams]:
+        """Set up an RTSP connection in the form of a Streams object with the Stream properties indicated by the arguments.
+
+        The Stream objects can be used to demux/decode their stream. For example, `stream_rtsp()` can be used as follows:
+        ```
+        async with connect_to_glasses(g3_hostname) as g3:
+            async with g3.stream_rtsp() as streams:
+                async with streams.scene_camera.decode() as decoded_stream:
+                    for _ in range(500):
+                        frame = await decoded_stream.get()
+                        image = frame.to_ndarray(format="bgr24")
+                        cv2.imshow("Video", image)
+                        cv2.waitKey(1)
+        ```
+
+        *Beta version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
+        """
         async with Streams.connect(
             self.rtsp_url,
             scene_camera=scene_camera,
@@ -106,6 +150,7 @@ class Glasses3(APIComponent):
             yield streams
 
     async def close(self) -> None:
+        """Close down the underlying websocket connection to the Glasses3 device."""
         await self._connection.close()
 
 

@@ -2,12 +2,14 @@ import asyncio
 from enum import Enum
 from typing import Awaitable, Tuple, cast
 
+from glasses3._utils import APIComponent, EndpointKind
 from glasses3.g3typing import URI, SignalBody
-from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 
 class BatteryState(Enum):
+    """Defines battery levels."""
+
     FULL = "full"
     GOOD = "good"
     LOW = "low"

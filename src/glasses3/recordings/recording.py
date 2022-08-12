@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from typing import List, Optional, cast
 
+from glasses3._utils import APIComponent, EndpointKind
 from glasses3.g3typing import URI
-from glasses3.utils import APIComponent, EndpointKind
 from glasses3.websocket import G3WebSocketClientProtocol
 
 
@@ -158,3 +158,8 @@ class Recording(APIComponent):
                 self.generate_endpoint_uri(EndpointKind.ACTION, "move"), body=[folder]
             ),
         )
+
+    @property
+    def uuid(self):
+        """The uuid of the recording."""
+        return self._uuid
