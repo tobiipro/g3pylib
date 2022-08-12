@@ -10,7 +10,7 @@ from glasses3 import connect_to_glasses
 logging.basicConfig(level=logging.INFO)
 
 
-async def access_recordings():
+async def stream_rtsp():
     async with connect_to_glasses(os.environ["G3_HOSTNAME"]) as g3:
         async with g3.stream_rtsp() as streams:
             async with streams.scene_camera.decode() as decoded_stream:
@@ -23,7 +23,7 @@ async def access_recordings():
 
 
 def main():
-    asyncio.run(access_recordings())
+    asyncio.run(stream_rtsp())
 
 
 if __name__ == "__main__":
