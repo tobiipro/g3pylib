@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import logging
 from abc import ABC, abstractmethod, abstractproperty
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -30,6 +31,7 @@ from aiortsp.transport import (  # type: ignore
 from dpkt.rtp import RTP  # type: ignore
 
 from glasses3 import _utils
+from glasses3.g3typing import JSONObject
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -257,6 +259,59 @@ class Stream(RTPTransportClient, ABC):
         raise NotImplementedError
         yield
 
+class DataStream(Stream):
+    def __init__(self, transport: RTPTransport, stream_type: StreamType) -> None:
+        super().__init__(transport, stream_type)
+
+    @property
+    def media_type(self) -> MediaType:
+        return "application"
+
+    @property
+    def stats(self) -> Dict[str, int]:
+        return {
+            "samples": 0,
+        }
+
+    @asynccontextmanager
+    async def demux(self) -> AsyncIterator[asyncio.Queue[bytes]]:
+        data_queue: asyncio.Queue[bytes] = asyncio.Queue(2)
+
+        async def demuxer():
+            while True:
+                rtp = await self.rtp_queue.get()
+                await data_queue.put(cast(bytes, rtp.data))    # type: ignore
+
+        demuxer_task = utils.create_task(demuxer(), name="demuxer")
+        try:
+            yield data_queue
+        finally:
+            demuxer_task.cancel()
+            try:
+                await demuxer_task
+            except asyncio.CancelledError:
+                pass
+
+    @asynccontextmanager
+    async def decode(self) -> AsyncIterator[asyncio.Queue[JSONObject]]:
+        json_queue: asyncio.Queue[JSONObject] = asyncio.Queue(2)
+
+        async def decoder():
+            async with self.demux() as data_queue:
+                while True:
+                    data = await data_queue.get()
+                    json_message: JSONObject = json.loads(data)
+                    await json_queue.put(json_message)
+
+        decoder_task = utils.create_task(decoder(), name="decoder")
+        try:
+            yield json_queue
+        finally:
+            decoder_task.cancel()
+            try:
+                await decoder_task
+            except asyncio.CancelledError:
+                pass
 
 class VideoStream(Stream):
     """Represents a RTSP video stream.
@@ -475,8 +530,16 @@ class Streams:
                             )
                         )
                     )
-                if audio or gaze or sync or imu or events:
-                    raise NotImplementedError
+                if gaze:
+                    streams.add(
+                        await stack.enter_async_context(
+                            DataStream.setup(
+                                connection, StreamType.GAZE, parsed_url.scheme
+                            )
+                        )
+                    )
+                if audio or sync or imu or events:
+                    raise NotImplementedError()
 
                 async with RTSPMediaSession(
                     connection,
