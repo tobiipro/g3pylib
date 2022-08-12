@@ -1,5 +1,4 @@
 from enum import Enum, auto
-from http.client import CONTINUE
 
 
 class ControlEventKind(Enum):

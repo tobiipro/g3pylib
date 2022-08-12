@@ -213,7 +213,7 @@ class G3WebSocketClientProtocol(
                             cast(SignalId, signal_id), cast(SignalBody, signal_body)
                         )
                     case _:
-                        self.g3_logger.debug(f"Invalid response to receiver task")
+                        self.g3_logger.debug("Invalid response to receiver task")
                         raise InvalidResponseError
 
         self.g3_logger.debug("Receiver task starting")

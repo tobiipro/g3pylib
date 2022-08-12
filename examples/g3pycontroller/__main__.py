@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from typing import Dict, List, Optional, Set, Tuple, cast
+from typing import List, Optional, Set, Tuple, cast
 
 import dotenv
 from eventkinds import AppEventKind, ControlEventKind
