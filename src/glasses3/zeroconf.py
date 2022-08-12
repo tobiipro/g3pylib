@@ -294,15 +294,6 @@ class G3ServiceDiscovery:
         return list(self._services_handler.services.values())
 
     @staticmethod
-    async def request_service(hostname: str, timeout: float = 3000) -> G3Service:
-        """Request information about a single specific service identified by its hostname.
-        Raises `ServiceNotFoundError` when the service can't be found on the network."""
-        service = G3Service.from_hostname(hostname)
-        async with AsyncZeroconf() as async_zeroconf:
-            await service.request(async_zeroconf.zeroconf, timeout)
-        return service
-
-    @staticmethod
     async def wait_for_single_service(  # TODO: Add timeout
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
         ip_version: IPVersion = IPVersion.All,
