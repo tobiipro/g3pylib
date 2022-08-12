@@ -1,5 +1,4 @@
-"""This is the g3pylib package root.
-
+"""
 .. include:: ../../README.md
 
 g3pylib is a python wrapper around the Glasses3 web API which lets you control Glasses3 devices.
@@ -135,7 +134,7 @@ class Glasses3(APIComponent):
                         cv2.waitKey(1)
         ```
 
-        *Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
+        *Beta version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
         """
         async with Streams.connect(
             self.rtsp_url,
