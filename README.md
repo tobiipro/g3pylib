@@ -29,6 +29,8 @@ You can also specify this variable directly in your environment.
 ## Examples
 The [example folder](examples) contains a few smaller examples showcasing different use cases of the library as well as a larger controller application with a simple GUI.
 
+Run the example app with `python examples/g3pycontroller`.
+
 ## Contributing
 More information on how to contribute to this project can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
 

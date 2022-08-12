@@ -4,6 +4,7 @@ import os
 from typing import Dict, List, Optional, Set, Tuple, cast
 
 import dotenv
+from eventkinds import AppEventKind, ControlEventKind
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.lang.builder import Builder
@@ -15,7 +16,6 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.screenmanager import Screen, ScreenManager
 
-from eventkinds import AppEventKind, ControlEventKind
 from glasses3 import Glasses3, connect_to_glasses
 from glasses3.g3typing import SignalBody
 from glasses3.recordings import RecordingsEventKind
