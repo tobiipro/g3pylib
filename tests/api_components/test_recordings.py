@@ -3,7 +3,6 @@ from typing import List, cast
 import pytest
 
 from glasses3 import Glasses3
-from glasses3.recordings.recording import Recording
 
 
 async def test_get_name(g3: Glasses3):
@@ -26,7 +25,7 @@ async def test_child_added_and_removed_signals(g3: Glasses3):
     await g3.recorder.stop()
 
     recording_uuid = cast(List[str], await child_added_queue.get())[0]
-    assert recording_uuid == cast(Recording, g3.recordings[0]).uuid
+    assert recording_uuid == g3.recordings[0].uuid
 
     assert await g3.recordings.delete(recording_uuid)
     removed_child_uuid = cast(List[str], await child_removed_queue.get())[0]

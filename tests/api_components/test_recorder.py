@@ -5,7 +5,6 @@ from typing import List, cast
 import pytest
 
 from glasses3 import Glasses3
-from glasses3.recordings.recording import Recording
 
 
 class TestRecorderRunning:
@@ -225,11 +224,8 @@ class TestRecorderNotRunning:
         folder_of_stopped_recording = cast(List[str], await queue_of_stopped.get())[0]
         assert type(folder_of_stopped_recording) is str
 
-        assert cast(Recording, g3.recordings[0]).uuid == uuid_of_started_recording
-        assert (
-            folder_of_stopped_recording
-            == await cast(Recording, g3.recordings[0]).get_folder()
-        )
+        assert g3.recordings[0].uuid == uuid_of_started_recording
+        assert folder_of_stopped_recording == await g3.recordings[0].get_folder()
 
         await unsubscribe_to_started
         await unsubscribe_to_stopped

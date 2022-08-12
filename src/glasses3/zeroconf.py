@@ -5,14 +5,14 @@ import logging
 from contextlib import asynccontextmanager
 from enum import Enum, auto
 from types import TracebackType
-from typing import AsyncIterator, Dict, Optional, Tuple, Type, cast
+from typing import AsyncIterator, Dict, List, Optional, Tuple, Type, cast
 
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from glasses3 import utils
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 RTSP_SERVICE_TYPE = "_rtsp._tcp.local."
 G3_SERVICE_TYPE = "_tobii-g3api._tcp.local."
@@ -130,37 +130,37 @@ class _G3ServicesHandler(ServiceListener):
         self._unhandled_events: asyncio.Queue[
             Tuple[EventKind, G3Service]
         ] = asyncio.Queue()
-        self.service_handler_task = utils.create_task(
+        self.service_handler_task: asyncio.Task[None] = utils.create_task(
             self.service_handler(timeout), name="service_handler"
         )
 
     @property
-    def services(self):
+    def services(self) -> Dict[str, G3Service]:
         return self._services
 
     @property
-    def events(self):
+    def events(self) -> asyncio.Queue[Tuple[EventKind, G3Service]]:
         return self._events
 
-    def update_service(self, zc: Zeroconf, type_: str, name: str):
+    def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         logger.debug(f"The service {name} is updated")
         self._unhandled_events.put_nowait(
             (EventKind.UPDATED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
-    def remove_service(self, zc: Zeroconf, type_: str, name: str):
+    def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         logger.debug(f"The service {name} is removed")
         self._unhandled_events.put_nowait(
             (EventKind.REMOVED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
-    def add_service(self, zc: Zeroconf, type_: str, name: str):
+    def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         logger.debug(f"The service {name} is added")
         self._unhandled_events.put_nowait(
             (EventKind.ADDED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
-    async def service_handler(self, timeout: float):
+    async def service_handler(self, timeout: float) -> None:
         while True:
             event = await self._unhandled_events.get()
             match event:
@@ -182,10 +182,10 @@ class _G3ServicesHandler(ServiceListener):
     def _hostname(type_: str, name: str) -> str:
         return name[: len(name) - len(type_) - 1]
 
-    async def close(self):
+    async def close(self) -> None:
         self.service_handler_task.cancel()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> _G3ServicesHandler:
         return self
 
     async def __aexit__(
@@ -193,7 +193,7 @@ class _G3ServicesHandler(ServiceListener):
         exc_type: Optional[Type[BaseException]],
         exc: Optional[BaseException],
         tb: Optional[TracebackType],
-    ):
+    ) -> None:
         await self.close()
 
 
@@ -219,15 +219,15 @@ class G3ServiceDiscovery:
                 yield cls(async_zeroconf, services_handler)
 
     @property
-    def services_by_serial_number(self):
+    def services_by_serial_number(self) -> Dict[str, G3Service]:
         return self._services_handler.services
 
     @property
-    def events(self):
+    def events(self) -> asyncio.Queue[Tuple[EventKind, G3Service]]:
         return self._services_handler.events
 
     @property
-    def services(self):
+    def services(self) -> List[G3Service]:
         return list(self._services_handler.services.values())
 
     @staticmethod
@@ -240,10 +240,10 @@ class G3ServiceDiscovery:
         return service
 
     @staticmethod
-    async def wait_for_single_service(
+    async def wait_for_single_service(  # TODO: Add timeout
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
         ip_version: IPVersion = IPVersion.All,
-    ):
+    ) -> G3Service:
         while True:
             event = await events.get()
             if event[0] in [EventKind.UPDATED, EventKind.ADDED]:

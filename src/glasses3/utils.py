@@ -24,7 +24,7 @@ class EndpointKind(Enum):
     SIGNAL = auto()
 
     @property
-    def uri_delimiter(self):
+    def uri_delimiter(self) -> str:
         match self:
             case EndpointKind.PROPERTY:
                 return "."

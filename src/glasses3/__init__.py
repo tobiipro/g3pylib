@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import AsyncIterator, Optional, Type, cast
+from typing import Any, AsyncIterator, Generator, Optional, Type, cast
 
 import glasses3.websocket
 from glasses3.calibrate import Calibrate
@@ -29,7 +29,9 @@ class Glasses3(APIComponent):
         rtsp_url: str,
         logger: Optional[LoggerLike] = None,
     ) -> None:
-        self.logger = logging.getLogger(__name__) if logger is None else logger
+        self.logger: LoggerLike = (
+            logging.getLogger(__name__) if logger is None else logger
+        )
         self._rtsp_url = rtsp_url
         self._connection: G3WebSocketClientProtocol = connection
         self._recorder: Optional[Recorder] = None
@@ -40,37 +42,37 @@ class Glasses3(APIComponent):
         self._settings: Optional[Settings] = None
 
     @property
-    def calibrate(self):
+    def calibrate(self) -> Calibrate:
         if self._calibrate is None:
             self._calibrate = Calibrate(self._connection, URI("/calibrate"))
         return self._calibrate
 
     @property
-    def recorder(self):
+    def recorder(self) -> Recorder:
         if self._recorder is None:
             self._recorder = Recorder(self._connection, URI("/recorder"))
         return self._recorder
 
     @property
-    def recordings(self):
+    def recordings(self) -> Recordings:
         if self._recordings is None:
             self._recordings = Recordings(self._connection, URI("/recordings"))
         return self._recordings
 
     @property
-    def rudimentary(self):
+    def rudimentary(self) -> Rudimentary:
         if self._rudimentary is None:
             self._rudimentary = Rudimentary(self._connection, URI("/rudimentary"))
         return self._rudimentary
 
     @property
-    def system(self):
+    def system(self) -> System:
         if self._system is None:
             self._system = System(self._connection, URI("/system"))
         return self._system
 
     @property
-    def settings(self):
+    def settings(self) -> Settings:
         if self._settings is None:
             self._settings = Settings(self._connection, URI("/settings"))
         return self._settings
@@ -103,7 +105,7 @@ class Glasses3(APIComponent):
             await streams.play()
             yield streams
 
-    async def close(self):
+    async def close(self) -> None:
         await self._connection.close()
 
 
@@ -116,10 +118,10 @@ class connect_to_glasses:
         self.g3_hostname = g3_hostname
         self.service = service
 
-    def __await__(self):
+    def __await__(self) -> Generator[Any, None, Glasses3]:
         return self.__await_impl__().__await__()
 
-    async def __await_impl__(self):
+    async def __await_impl__(self) -> Glasses3:
         if self.g3_hostname is None and self.service is None:
             async with G3ServiceDiscovery.listen() as service_discovery:
                 self.service = await service_discovery.wait_for_single_service(
@@ -147,5 +149,5 @@ class connect_to_glasses:
         exception_type: Optional[Type[BaseException]],
         exception_value: Optional[BaseException],
         traceback: Optional[TracebackType],
-    ):
+    ) -> None:
         await self.connection.close()
