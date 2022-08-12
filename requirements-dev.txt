@@ -4,5 +4,6 @@ python-dotenv
 pytest
 pytest-dotenv
 pytest-asyncio
+pyflakes
 black
 isort
