@@ -1,2 +1,4 @@
+-r requirements.txt
 python-dotenv
+opencv-python
 kivy ~= 2.1.0
