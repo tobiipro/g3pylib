@@ -259,6 +259,7 @@ class Stream(RTPTransportClient, ABC):
         raise NotImplementedError
         yield
 
+
 class DataStream(Stream):
     def __init__(self, transport: RTPTransport, stream_type: StreamType) -> None:
         super().__init__(transport, stream_type)
@@ -280,9 +281,9 @@ class DataStream(Stream):
         async def demuxer():
             while True:
                 rtp = await self.rtp_queue.get()
-                await data_queue.put(cast(bytes, rtp.data))    # type: ignore
+                await data_queue.put(cast(bytes, rtp.data))  # type: ignore
 
-        demuxer_task = utils.create_task(demuxer(), name="demuxer")
+        demuxer_task = _utils.create_task(demuxer(), name="demuxer")
         try:
             yield data_queue
         finally:
@@ -303,7 +304,7 @@ class DataStream(Stream):
                     json_message: JSONObject = json.loads(data)
                     await json_queue.put(json_message)
 
-        decoder_task = utils.create_task(decoder(), name="decoder")
+        decoder_task = _utils.create_task(decoder(), name="decoder")
         try:
             yield json_queue
         finally:
@@ -312,6 +313,7 @@ class DataStream(Stream):
                 await decoder_task
             except asyncio.CancelledError:
                 pass
+
 
 class VideoStream(Stream):
     """Represents a RTSP video stream.
