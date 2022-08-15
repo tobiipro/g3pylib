@@ -17,7 +17,7 @@ classifiers = [
     "Private :: Do Not Upload"
 ]
 requires-python = ">=3.10"
-license = {file = "LICENSE.txt"}
+license = {file = "LICENSE.md"}
 dependencies = [
     "websockets ~= 10.3",
     "zeroconf ~= 0.38.7",
