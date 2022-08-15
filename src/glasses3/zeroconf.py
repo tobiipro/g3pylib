@@ -16,6 +16,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 RTSP_SERVICE_TYPE = "_rtsp._tcp.local."
 G3_SERVICE_TYPE = "_tobii-g3api._tcp.local."
+DEFAULT_WEBSOCKET_PATH = "/websocket"
 
 
 class ServiceNotFoundError(Exception):
@@ -74,6 +75,10 @@ class G3Service:
             return self._service_info.parsed_addresses(IPVersion.V6Only)[0]
         except IndexError:
             return None
+
+    @property
+    def ws_url(self) -> str:
+        return f"ws://{self.hostname}{DEFAULT_WEBSOCKET_PATH}"
 
     @property
     def rtsp_port(self) -> Optional[int]:

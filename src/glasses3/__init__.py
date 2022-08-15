@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, AsyncIterator, Generator, Optional, Type, cast
+from typing import Any, AsyncIterator, Coroutine, Generator, Optional, Tuple, Type, cast
 
 import glasses3.websocket
 from glasses3._utils import APIComponent
@@ -40,6 +40,10 @@ from glasses3.zeroconf import G3Service, G3ServiceDiscovery
 __version__ = "0.1.1-alpha"
 
 
+class StreamingNotSupportedError(Exception):
+    """Raised when streaming is attempted but unsupported."""
+
+
 class Glasses3(APIComponent):
     """
     Represents a Glasses3 device.
@@ -53,7 +57,7 @@ class Glasses3(APIComponent):
     def __init__(
         self,
         connection: G3WebSocketClientProtocol,
-        rtsp_url: str,
+        rtsp_url: Optional[str],
         logger: Optional[LoggerLike] = None,
     ) -> None:
         self.logger: LoggerLike = (
@@ -105,7 +109,7 @@ class Glasses3(APIComponent):
         return self._settings
 
     @property
-    def rtsp_url(self) -> str:
+    def rtsp_url(self) -> Optional[str]:
         """The RTSP URL used for live stream."""
         return self._rtsp_url
 
@@ -136,6 +140,10 @@ class Glasses3(APIComponent):
 
         *Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
         """
+        if self.rtsp_url is None:
+            raise StreamingNotSupportedError(
+                "This Glasses3 object was initialized without a proper RTSP url."
+            )
         async with Streams.connect(
             self.rtsp_url,
             scene_camera=scene_camera,
@@ -156,35 +164,57 @@ class Glasses3(APIComponent):
 
 class connect_to_glasses:
     def __init__(
-        self,
-        g3_hostname: Optional[str] = None,
-        service: Optional[G3Service] = None,
+        self, url_generator: Coroutine[Any, Any, Tuple[str, Optional[str]]]
     ) -> None:
-        self.g3_hostname = g3_hostname
-        self.service = service
+        self.url_generator = url_generator
+
+    @staticmethod
+    async def _urls_from_zeroconf() -> Tuple[str, Optional[str]]:
+        async with G3ServiceDiscovery.listen() as service_discovery:
+            service = await service_discovery.wait_for_single_service(
+                service_discovery.events
+            )
+        return await connect_to_glasses._urls_from_service(service)
+
+    @staticmethod
+    async def _urls_from_service(service: G3Service) -> Tuple[str, Optional[str]]:
+        return (service.ws_url, service.rtsp_url)
+
+    @staticmethod
+    async def _urls_from_hostname(hostname: str) -> Tuple[str, Optional[str]]:
+        service = await G3ServiceDiscovery.request_service(hostname)
+        return await connect_to_glasses._urls_from_service(service)
+
+    @classmethod
+    def with_zeroconf(cls) -> connect_to_glasses:
+        return cls(cls._urls_from_zeroconf())
+
+    @classmethod
+    def with_hostname(cls, hostname: str) -> connect_to_glasses:
+        return cls(cls._urls_from_hostname(hostname))
+
+    @classmethod
+    def with_service(cls, service: G3Service) -> connect_to_glasses:
+        return cls(cls._urls_from_service(service))
+
+    @classmethod
+    def with_url(cls, ws_url: str, rtsp_url: Optional[str]):
+        async def urls():
+            return (ws_url, rtsp_url)
+
+        return cls(urls())
 
     def __await__(self) -> Generator[Any, None, Glasses3]:
         return self.__await_impl__().__await__()
 
     async def __await_impl__(self) -> Glasses3:
-        if self.g3_hostname is None and self.service is None:
-            async with G3ServiceDiscovery.listen() as service_discovery:
-                self.service = await service_discovery.wait_for_single_service(
-                    service_discovery.events
-                )
-            self.g3_hostname = self.service.hostname
-        elif self.service is None and self.g3_hostname is not None:
-            self.service = await G3ServiceDiscovery.request_service(self.g3_hostname)
-        elif self.g3_hostname is None and self.service is not None:
-            self.g3_hostname = self.service.hostname
-        else:
-            raise ValueError
-
-        connection = await glasses3.websocket.connect(self.g3_hostname)
-        connection = cast(G3WebSocketClientProtocol, connection)
+        ws_url, rtsp_url = await self.url_generator
+        connection = cast(
+            G3WebSocketClientProtocol, await glasses3.websocket.connect(ws_url)
+        )
         connection.start_receiver_task()
         self.connection = connection
-        return Glasses3(connection, self.service.rtsp_url)
+        return Glasses3(connection, rtsp_url)
 
     async def __aenter__(self) -> Glasses3:
         return await self

@@ -6,12 +6,11 @@ import pytest
 
 from glasses3 import Glasses3, connect_to_glasses
 
-g3_hostname = os.environ["G3_HOSTNAME"]
-
 
 @pytest.fixture(scope="module")
 async def g3() -> AsyncIterable[Glasses3]:
-    async with connect_to_glasses(g3_hostname) as g3:
+    g3_hostname = os.environ["G3_HOSTNAME"]
+    async with connect_to_glasses.with_hostname(g3_hostname) as g3:
         await g3.recordings.start_children_handler_tasks()
         yield g3
         await g3.recordings.stop_children_handler_tasks()
