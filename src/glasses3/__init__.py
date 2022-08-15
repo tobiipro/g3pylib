@@ -37,7 +37,7 @@ from glasses3.system import System
 from glasses3.websocket import G3WebSocketClientProtocol
 from glasses3.zeroconf import G3Service, G3ServiceDiscovery
 
-__version__ = "0.1.0-alpha"
+__version__ = "0.1.1-alpha"
 
 
 class Glasses3(APIComponent):
