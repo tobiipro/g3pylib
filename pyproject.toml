@@ -36,7 +36,8 @@ doc = ["pdoc"]
 dev = [
     "isort",
     "black",
-    "pyflakes"
+    "pyflakes",
+    "pre-commit"
 ]
 examples = [
     "python-dotenv",
