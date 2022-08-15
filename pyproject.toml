@@ -38,7 +38,10 @@ dev = [
     "black",
     "pyflakes"
 ]
-examples = ["python-dotenv"]
+examples = [
+    "python-dotenv",
+    "opencv-python"
+]
 example-app = ["kivy ~= 2.1.0"]
 
 [project.urls]
