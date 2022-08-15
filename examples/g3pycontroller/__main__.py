@@ -1,9 +1,7 @@
 import asyncio
 import logging
-import os
 from typing import List, Optional, Set, Tuple, cast
 
-import dotenv
 from eventkinds import AppEventKind, ControlEventKind
 from kivy.app import App
 from kivy.core.window import Window
