@@ -24,9 +24,6 @@ from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
 
-dotenv.load_dotenv()  # type: ignore
-g3_hostname = os.environ["G3_HOSTNAME"]
-
 # fmt: off
 Builder.load_string("""
 #:import NoTransition kivy.uix.screenmanager.NoTransition
