@@ -4,5 +4,7 @@ python-dotenv
 pytest
 pytest-dotenv
 pytest-asyncio
+pyflakes
+opencv-python
 black
 isort

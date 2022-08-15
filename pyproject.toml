@@ -17,10 +17,12 @@ classifiers = [
     "Private :: Do Not Upload"
 ]
 requires-python = ">=3.10"
+license = {file = "LICENSE.txt"}
 dependencies = [
     "websockets ~= 10.3",
     "zeroconf ~= 0.38.7",
-    "aiortsp @ git+https://github.com/m4reko/aiortsp@master"
+    "aiortsp @ git+https://github.com/m4reko/aiortsp@master",
+    "av ~= 9.2.0"
 ]
 dynamic = ["version", "description"]
 
@@ -34,9 +36,14 @@ test = [
 doc = ["pdoc"]
 dev = [
     "isort",
-    "black"
+    "black",
+    "pyflakes",
+    "pre-commit"
 ]
-examples = ["python-dotenv"]
+examples = [
+    "python-dotenv",
+    "opencv-python"
+]
 example-app = ["kivy ~= 2.1.0"]
 
 [project.urls]

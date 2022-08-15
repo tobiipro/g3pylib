@@ -1,9 +1,7 @@
 import asyncio
 import logging
-import os
 from typing import List, Optional, Set, Tuple, cast
 
-import dotenv
 from eventkinds import AppEventKind, ControlEventKind
 from kivy.app import App
 from kivy.core.window import Window
@@ -23,9 +21,6 @@ from glasses3.recordings.recording import Recording
 from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
-
-dotenv.load_dotenv()  # type: ignore
-g3_hostname = os.environ["G3_HOSTNAME"]
 
 # fmt: off
 Builder.load_string("""
