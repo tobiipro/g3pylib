@@ -8,6 +8,7 @@ from kivy.core.window import Window
 from kivy.lang.builder import Builder
 from kivy.properties import BooleanProperty
 from kivy.uix.label import Label
+from kivy.uix.popup import Popup
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
@@ -25,16 +26,34 @@ logging.basicConfig(level=logging.DEBUG)
 # fmt: off
 Builder.load_string("""
 #:import NoTransition kivy.uix.screenmanager.NoTransition
+#:import Factory kivy.factory.Factory
 #:import ControlEventKind eventkinds.ControlEventKind
 #:import AppEventKind eventkinds.AppEventKind
 
 <DiscoveryScreen>:
     BoxLayout:
-        SelectableList:
-            id: services
+        BoxLayout:
+            orientation: "vertical"
+            Label:
+                size_hint_y: None
+                height: dp(50)
+                text: "Found services:"
+            SelectableList:
+                id: services
         Button:
+            size_hint: 1, None
+            height: dp(50)
+            pos_hint: {'center_x':0.5, 'center_y':0.5}
             text: "Connect"
             on_press: app.send_app_event(AppEventKind.ENTER_CONTROL_SESSION)
+
+
+<UserMessagePopup>:
+    size_hint: None, None
+    size: 400, 200
+    Label:
+        id: message_label
+        text: ""
 
 <ControlScreen>:
     BoxLayout:
@@ -152,6 +171,7 @@ class DiscoveryScreen(Screen):
         self.ids.services.data.append(
             {"id": hostname, "text": f"{hostname}\n{ipv4}\n{ipv6}"}
         )
+        logging.info(f"Services: Added {hostname}, {ipv4}, {ipv6}")
 
     def update_service(
         self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]
@@ -160,6 +180,7 @@ class DiscoveryScreen(Screen):
         for service in services.data:
             if service["id"] == hostname:
                 service["text"] = f"{hostname}\n{ipv4}\n{ipv6}"
+                logging.info(f"Services: Updated {hostname}, {ipv4}, {ipv6}")
 
     def remove_service(
         self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]
@@ -168,9 +189,11 @@ class DiscoveryScreen(Screen):
         services.data = [
             service for service in services.data if service["id"] != hostname
         ]
+        logging.info(f"Services: Removed {hostname}, {ipv4}, {ipv6}")
 
     def clear(self):
         self.ids.services.data = []
+        logging.info("Services: All cleared")
 
 
 class ControlScreen(Screen):
@@ -222,6 +245,10 @@ class LiveScreen(Screen):
     pass
 
 
+class UserMessagePopup(Popup):
+    pass
+
+
 class G3App(App, ScreenManager):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -250,12 +277,17 @@ class G3App(App, ScreenManager):
             self.transition.direction = "left"
         self.current = screen
 
-    def start_control(self) -> None:
+    def start_control(self) -> bool:
         selected = self.get_screen(
             "discovery"
         ).ids.services.ids.selectables.selected_nodes
         if len(selected) <= 0:
-            print("Please choose a Glasses3 unit to connect.")  # TODO: print in gui
+            popup = UserMessagePopup(title="No Glasses3 unit selected")
+            popup.ids.message_label.text = (
+                "Please select a Glasses3 unit and try again."
+            )
+            popup.open()
+            return False
         else:
             hostname = self.get_screen("discovery").ids.services.data[selected[0]]["id"]
             self.backend_control_task = self.create_task(
@@ -263,6 +295,7 @@ class G3App(App, ScreenManager):
             )
             self.get_screen("control").set_hostname(hostname)
             self.switch_to_screen("control")
+            return True
 
     async def stop_control(self) -> None:
         await self.cancel_task(self.backend_control_task)
@@ -294,8 +327,8 @@ class G3App(App, ScreenManager):
             case AppEventKind.START_DISCOVERY:
                 self.start_discovery()
             case AppEventKind.ENTER_CONTROL_SESSION:
-                self.start_control()
-                await self.stop_discovery()
+                if self.start_control():
+                    await self.stop_discovery()
             case AppEventKind.LEAVE_CONTROL_SESSION:
                 self.start_discovery()
                 await self.stop_control()
@@ -367,9 +400,9 @@ class G3App(App, ScreenManager):
             .ids.recordings.ids.selectables.selected_nodes
         )
         if len(selected) != 1:
-            print(
-                "Please select a recording before attempting delete."
-            )  # TODO: print in gui
+            popup = UserMessagePopup(title="No recording selected")
+            popup.ids.message_label.text = "Please select a recording and try again."
+            popup.open()
         else:
             uuid = (
                 self.get_screen("control")
