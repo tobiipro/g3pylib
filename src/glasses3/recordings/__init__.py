@@ -172,9 +172,9 @@ class Recordings(APIComponent, Sequence[Recording]):
 
     @property
     def events(self) -> asyncio.Queue[Tuple[RecordingsEventKind, SignalBody]]:
-        """The event queue containing added and removed recording events.
+        """An event queue containing added and removed recording events.
 
-        Is updated in the context `keep_updated_in_context`."""
+        Is kept updated in the context `keep_updated_in_context`."""
         return self._events
 
     @property
@@ -207,7 +207,19 @@ class Recordings(APIComponent, Sequence[Recording]):
 
     @asynccontextmanager
     async def keep_updated_in_context(self):
-        """Keep the `Recordings` state continuously updated in the context by listening for added and removed recordings."""
+        """Keep the `Recordings` state continuously updated in the context by listening for added and removed recordings.
+
+        Example usage:
+        ```
+        async with g3.recordings.keep_updated_in_context():
+            await g3.recorder.start()
+            await asyncio.sleep(3)
+            await g3.recorder.stop()
+
+            print(len(g3.recordings)) # current number of recordings on device
+            print(await g3.recordings.events.get()) # next event from the event queue
+        ```
+        """
         await self.start_children_handler_tasks()
         try:
             yield
