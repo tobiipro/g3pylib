@@ -167,7 +167,15 @@ class Rudimentary(APIComponent):
 
     @asynccontextmanager
     async def keep_alive_in_context(self):
-        """Regularly sends keep alive messages to keep rudimentary streams alive."""
+        """Regularly sends keep alive messages to keep rudimentary streams alive.
+
+        Example usage:
+        ```
+        async with g3.rudimentary.keep_alive_in_context():
+            for _ in range(100):
+                print(await g3.rudimentary.get_gaze_sample())
+        ```
+        """
         await self.start_streams()
         try:
             yield
