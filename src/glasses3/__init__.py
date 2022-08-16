@@ -169,20 +169,22 @@ class connect_to_glasses:
         self.url_generator = url_generator
 
     @staticmethod
-    async def _urls_from_zeroconf() -> Tuple[str, Optional[str]]:
+    async def _urls_from_zeroconf(using_ip: bool = True) -> Tuple[str, Optional[str]]:
         async with G3ServiceDiscovery.listen() as service_discovery:
             service = await service_discovery.wait_for_single_service(
                 service_discovery.events
             )
-        return await connect_to_glasses._urls_from_service(service)
+        return await connect_to_glasses._urls_from_service(service, using_ip)
 
     @staticmethod
-    async def _urls_from_service(service: G3Service) -> Tuple[str, Optional[str]]:
-        return (service.ws_url(), service.rtsp_url)
+    async def _urls_from_service(
+        service: G3Service, using_ip: bool
+    ) -> Tuple[str, Optional[str]]:
+        return (service.ws_url(using_ip), service.rtsp_url(using_ip))
 
     @staticmethod
     async def _urls_from_hostname(
-        hostname: str, using_zeroconf: bool = False
+        hostname: str, using_zeroconf: bool, using_ip: bool
     ) -> Tuple[str, Optional[str]]:
         if not using_zeroconf:
             return (
@@ -191,7 +193,7 @@ class connect_to_glasses:
             )
         else:
             service = await G3ServiceDiscovery.request_service(hostname)
-            return await connect_to_glasses._urls_from_service(service)
+            return await connect_to_glasses._urls_from_service(service, using_ip)
 
     @classmethod
     def with_zeroconf(cls) -> connect_to_glasses:
@@ -199,13 +201,15 @@ class connect_to_glasses:
 
     @classmethod
     def with_hostname(
-        cls, hostname: str, using_zeroconf: bool = False
+        cls, hostname: str, using_zeroconf: bool = False, using_ip: bool = True
     ) -> connect_to_glasses:
-        return cls(cls._urls_from_hostname(hostname, using_zeroconf))
+        return cls(cls._urls_from_hostname(hostname, using_zeroconf, using_ip))
 
     @classmethod
-    def with_service(cls, service: G3Service) -> connect_to_glasses:
-        return cls(cls._urls_from_service(service))
+    def with_service(
+        cls, service: G3Service, using_ip: bool = True
+    ) -> connect_to_glasses:
+        return cls(cls._urls_from_service(service, using_ip))
 
     @classmethod
     def with_url(cls, ws_url: str, rtsp_url: Optional[str] = None):

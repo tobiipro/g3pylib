@@ -23,6 +23,10 @@ class ServiceNotFoundError(Exception):
     """Raised when a service request is not successful."""
 
 
+class IncompleteServiceError(Exception):
+    """Raised when a service is missing an expected property."""
+
+
 class G3Service:
     """A service representing a Glasses3 device on the network.
 
@@ -76,23 +80,39 @@ class G3Service:
         except IndexError:
             return None
 
-    def ws_url(
-        self, using_hostname: bool = False, ip_version: IPVersion = IPVersion.V4Only
-    ) -> str:
-        if not using_hostname:
+    def _ip_or_hostname(self, using_ip: bool, ip_version: IPVersion) -> str:
+        if using_ip:
             if ip_version == IPVersion.V4Only:
-                domain = self.ipv4_address
+                if self.ipv4_address is None:
+                    raise IncompleteServiceError("Missing IPV4 address.")
+                return self.ipv4_address
             elif ip_version == IPVersion.V6Only:
-                domain = self.ipv6_address
+                if self.ipv6_address is None:
+                    raise IncompleteServiceError("Missing IPV6 address.")
+                return self.ipv6_address
             else:
                 raise ValueError("This function only support either IPV4 or IPV6.")
         else:
-            domain = self.hostname
-        return f"ws://{domain}{DEFAULT_WEBSOCKET_PATH}"
+            return self.hostname
+
+    def ws_url(
+        self, using_ip: bool = False, ip_version: IPVersion = IPVersion.V4Only
+    ) -> str:
+        ip_or_hostname = self._ip_or_hostname(using_ip, ip_version)
+        return f"ws://{ip_or_hostname}{DEFAULT_WEBSOCKET_PATH}"
+
+    def rtsp_url(
+        self, using_ip: bool = False, ip_version: IPVersion = IPVersion.V4Only
+    ) -> Optional[str]:
+        """The url used to connect to an RTSP client to the live stream."""
+        if self.rtsp_service_info is None:
+            return None
+        ip_or_hostname = self._ip_or_hostname(using_ip, ip_version)
+        return f"rtsp://{ip_or_hostname}:{self.rtsp_port}{self.rtsp_live_path}"
 
     @property
     def rtsp_port(self) -> Optional[int]:
-        """The port for the RTSP-service."""
+        """The port used for the RTSP service."""
         if self.rtsp_service_info is None:
             return None
         return self.rtsp_service_info.port
@@ -111,13 +131,6 @@ class G3Service:
         if self.rtsp_service_info is None:
             return None
         return cast(Dict[bytes, bytes], self.rtsp_service_info.properties)[b"recordings"].decode("ascii")  # type: ignore
-
-    @property
-    def rtsp_url(self) -> Optional[str]:
-        """The path used connect to an RTSP client to the live stream."""
-        if self.rtsp_service_info is None:
-            return None
-        return f"rtsp://{self.hostname}:{self.rtsp_port}{self.rtsp_live_path}"
 
     async def request(self, zc: Zeroconf, timeout: float = 3000) -> None:
         """Attempts to update the services' information and raises `ServiceNotFoundError` when the services can't be found on the network."""
