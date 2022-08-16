@@ -294,7 +294,7 @@ class G3ServiceDiscovery:
         return list(self._services_handler.services.values())
 
     @staticmethod
-    async def wait_for_single_service(  # TODO: Add timeout
+    async def wait_for_single_service(
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
         ip_version: IPVersion = IPVersion.All,
     ) -> G3Service:
