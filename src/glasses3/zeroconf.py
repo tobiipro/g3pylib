@@ -76,9 +76,19 @@ class G3Service:
         except IndexError:
             return None
 
-    @property
-    def ws_url(self) -> str:
-        return f"ws://{self.hostname}{DEFAULT_WEBSOCKET_PATH}"
+    def ws_url(
+        self, using_hostname: bool = False, ip_version: IPVersion = IPVersion.V4Only
+    ) -> str:
+        if not using_hostname:
+            if ip_version == IPVersion.V4Only:
+                domain = self.ipv4_address
+            elif ip_version == IPVersion.V6Only:
+                domain = self.ipv6_address
+            else:
+                raise ValueError("This function only support either IPV4 or IPV6.")
+        else:
+            domain = self.hostname
+        return f"ws://{domain}{DEFAULT_WEBSOCKET_PATH}"
 
     @property
     def rtsp_port(self) -> Optional[int]:

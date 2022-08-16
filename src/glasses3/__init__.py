@@ -32,10 +32,10 @@ from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
 from glasses3.rudimentary import Rudimentary
 from glasses3.settings import Settings
-from glasses3.streams import Streams
+from glasses3.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT, Streams
 from glasses3.system import System
 from glasses3.websocket import G3WebSocketClientProtocol
-from glasses3.zeroconf import G3Service, G3ServiceDiscovery
+from glasses3.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
 
 __version__ = "0.1.1-alpha"
 
@@ -178,27 +178,37 @@ class connect_to_glasses:
 
     @staticmethod
     async def _urls_from_service(service: G3Service) -> Tuple[str, Optional[str]]:
-        return (service.ws_url, service.rtsp_url)
+        return (service.ws_url(), service.rtsp_url)
 
     @staticmethod
-    async def _urls_from_hostname(hostname: str) -> Tuple[str, Optional[str]]:
-        service = await G3ServiceDiscovery.request_service(hostname)
-        return await connect_to_glasses._urls_from_service(service)
+    async def _urls_from_hostname(
+        hostname: str, using_zeroconf: bool = False
+    ) -> Tuple[str, Optional[str]]:
+        if not using_zeroconf:
+            return (
+                f"ws://{hostname}{DEFAULT_WEBSOCKET_PATH}",
+                f"rtsp://{hostname}:{DEFAULT_RTSP_PORT}{DEFAULT_RTPS_LIVE_PATH}",
+            )
+        else:
+            service = await G3ServiceDiscovery.request_service(hostname)
+            return await connect_to_glasses._urls_from_service(service)
 
     @classmethod
     def with_zeroconf(cls) -> connect_to_glasses:
         return cls(cls._urls_from_zeroconf())
 
     @classmethod
-    def with_hostname(cls, hostname: str) -> connect_to_glasses:
-        return cls(cls._urls_from_hostname(hostname))
+    def with_hostname(
+        cls, hostname: str, using_zeroconf: bool = False
+    ) -> connect_to_glasses:
+        return cls(cls._urls_from_hostname(hostname, using_zeroconf))
 
     @classmethod
     def with_service(cls, service: G3Service) -> connect_to_glasses:
         return cls(cls._urls_from_service(service))
 
     @classmethod
-    def with_url(cls, ws_url: str, rtsp_url: Optional[str]):
+    def with_url(cls, ws_url: str, rtsp_url: Optional[str] = None):
         async def urls():
             return (ws_url, rtsp_url)
 
