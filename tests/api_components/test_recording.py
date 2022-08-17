@@ -3,8 +3,8 @@ from typing import cast
 
 import pytest
 
-from glasses3 import Glasses3
-from glasses3.recordings.recording import Recording
+from g3pylib import Glasses3
+from g3pylib.recordings.recording import Recording
 
 
 @pytest.fixture(scope="module")

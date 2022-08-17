@@ -2,9 +2,9 @@ import os
 
 import pytest
 
-from glasses3 import connect_to_glasses
-from glasses3.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT
-from glasses3.zeroconf import DEFAULT_WEBSOCKET_PATH, G3ServiceDiscovery
+from g3pylib import connect_to_glasses
+from g3pylib.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT
+from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3ServiceDiscovery
 
 
 @pytest.fixture(scope="module")

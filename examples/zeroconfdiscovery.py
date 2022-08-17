@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from glasses3.zeroconf import EventKind, G3ServiceDiscovery
+from g3pylib.zeroconf import EventKind, G3ServiceDiscovery
 
 logging.basicConfig(level=logging.INFO)
 

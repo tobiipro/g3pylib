@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from glasses3 import Glasses3
+from g3pylib import Glasses3
 
 
 async def test_get_head_unit_serial(g3: Glasses3):

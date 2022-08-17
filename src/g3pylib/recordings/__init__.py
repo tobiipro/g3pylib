@@ -5,11 +5,11 @@ from contextlib import asynccontextmanager
 from enum import Enum, auto
 from typing import Awaitable, Dict, List, Tuple, Union, cast, overload
 
-from glasses3 import _utils
-from glasses3._utils import APIComponent, EndpointKind
-from glasses3.g3typing import URI, SignalBody
-from glasses3.recordings.recording import Recording
-from glasses3.websocket import G3WebSocketClientProtocol
+from g3pylib import _utils
+from g3pylib._utils import APIComponent, EndpointKind
+from g3pylib.g3typing import URI, SignalBody
+from g3pylib.recordings.recording import Recording
+from g3pylib.websocket import G3WebSocketClientProtocol
 
 
 class RecordingsEventKind(Enum):

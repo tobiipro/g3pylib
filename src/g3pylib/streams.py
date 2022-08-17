@@ -30,8 +30,8 @@ from aiortsp.transport import (  # type: ignore
 )
 from dpkt.rtp import RTP  # type: ignore
 
-from glasses3 import _utils
-from glasses3.g3typing import JSONObject
+from g3pylib import _utils
+from g3pylib.g3typing import JSONObject
 
 DEFAULT_RTPS_LIVE_PATH = "/live/all"
 DEFAULT_RTSP_PORT = 8554
