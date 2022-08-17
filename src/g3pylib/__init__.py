@@ -38,7 +38,7 @@ from g3pylib.system import System
 from g3pylib.websocket import G3WebSocketClientProtocol
 from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
 
-__version__ = "0.1.2-alpha"
+__version__ = "0.2.0-alpha"
 
 
 class StreamingNotSupportedError(Exception):
