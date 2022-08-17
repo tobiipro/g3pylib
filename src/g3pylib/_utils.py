@@ -5,7 +5,7 @@ from asyncio import Task
 from enum import Enum, auto
 from typing import Any, Coroutine
 
-from glasses3.g3typing import URI
+from g3pylib.g3typing import URI
 
 
 class APIComponent:

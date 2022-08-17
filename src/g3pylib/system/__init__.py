@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import List, Optional, cast
 
-from glasses3._utils import APIComponent, EndpointKind
-from glasses3.g3typing import URI
-from glasses3.system.battery import Battery
-from glasses3.websocket import G3WebSocketClientProtocol
+from g3pylib._utils import APIComponent, EndpointKind
+from g3pylib.g3typing import URI
+from g3pylib.system.battery import Battery
+from g3pylib.websocket import G3WebSocketClientProtocol
 
 
 class System(APIComponent):

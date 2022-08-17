@@ -13,8 +13,8 @@ import websockets.legacy.client
 from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
-from glasses3 import _utils
-from glasses3.g3typing import (
+from g3pylib import _utils
+from g3pylib.g3typing import (
     URI,
     JSONDict,
     JSONObject,
@@ -23,7 +23,7 @@ from glasses3.g3typing import (
     SignalId,
     SubscriptionId,
 )
-from glasses3.websocket.exceptions import (
+from g3pylib.websocket.exceptions import (
     GlassesError,
     InvalidResponseError,
     SubscribeError,

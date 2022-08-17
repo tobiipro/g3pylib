@@ -15,11 +15,11 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.screenmanager import Screen, ScreenManager
 
-from glasses3 import Glasses3, connect_to_glasses
-from glasses3.g3typing import SignalBody
-from glasses3.recordings import RecordingsEventKind
-from glasses3.recordings.recording import Recording
-from glasses3.zeroconf import EventKind, G3Service, G3ServiceDiscovery
+from g3pylib import Glasses3, connect_to_glasses
+from g3pylib.g3typing import SignalBody
+from g3pylib.recordings import RecordingsEventKind
+from g3pylib.recordings.recording import Recording
+from g3pylib.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
 logging.basicConfig(level=logging.DEBUG)
 
