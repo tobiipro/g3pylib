@@ -29,12 +29,8 @@ from glasses3.websocket.exceptions import (
     UnsubscribeError,
 )
 
-DEFAULT_WEBSOCKET_URI = URI("/websocket")
 
-
-def connect(
-    g3_hostname: str, websocket_uri: URI = DEFAULT_WEBSOCKET_URI
-) -> websockets.legacy.client.Connect:
+def connect(ws_url: str) -> websockets.legacy.client.Connect:
     """Sets up a websocket connection with a Glasses3 device.
 
     Uses WebSocketClientProtocol from websockets to create a connection with the supplied hostname
@@ -45,9 +41,8 @@ def connect(
 
     Returns a Connect object that communicates with Glasses3.
     """
-    ws_uri = f"ws://{g3_hostname}{websocket_uri}"
     return websockets_connect(
-        ws_uri,
+        ws_url,
         create_protocol=G3WebSocketClientProtocol.factory,
         subprotocols=G3WebSocketClientProtocol.DEFAULT_SUBPROTOCOLS,
     )

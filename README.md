@@ -6,7 +6,7 @@ A Python client for Glasses3. It handles all the low level details of communicat
 
 ## Installation
 
-For the moment we only support _Python 3.10_.
+For the moment we only support *Python 3.10*.
 
 To install this package, clone it and use either
 
@@ -22,7 +22,7 @@ To run examples or tests you need some extra dependencies which are installed by
 
 ## Documentation
 
-The library documentation can be found here: https://tobiipro.github.io/g3pylib/
+The library documentation can be found [here](https://tobiipro.github.io/g3pylib/) and there is also a developer guide for the glasses API in PDF format which can be downloaded [here](https://www.tobiipro.com/product-listing/tobii-pro-glasses3-api/#ResourcesSpecifications).
 
 ## Environment
 
