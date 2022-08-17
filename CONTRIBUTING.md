@@ -31,28 +31,12 @@ More in-depth information of the module. This docstring is placed at the top of 
 """
 import asyncio
 
-def my_simple_function(arg_1: str, arg_2: int):
-    """Summary of my_simple_function.
+def my_function(arg_1: str, arg_2: int) -> int:
+    """Summary of my_function.
 
     Takes in a name and number.
 
     Returns a pair of glasses.
-
-    """
-    pass
-
-def my_long_function(arg_1: str, arg_2: int):
-    """Summary of my_simple_function.
-
-    ###### Args
-    - `arg_1`: The first argument.
-    - `arg_2`: The second argument.
-
-    ###### Returns
-    Something you want to use.
-
-    ###### Raises
-    - `MyError`: An error indicating some error.
     """
     pass
 
@@ -69,54 +53,16 @@ class MyClass:
     variable_2: int
     """The second variable"""
 
-    def __init__(arg_1: str):
+    def __init__(arg_1: str) -> None:
         """Initializes object, where arg_1 is your `variable_1`."""
         self.variable_1 = arg_1
 
-    def my_simple_method(arg_1: str, arg_2: int):
+    def my_method(arg_1: str, arg_2: int) -> int:
         """Summary of my_simple_method.
 
         Takes in a name and number.
 
-        Returns something simple.
+        Returns something nice.
         """
         pass
-
-    def my_long_method(arg_1: str, arg_2: int):
-        """
-        Summary of my_long_method.
-
-        Some more in-depth information about my_long_method.
-
-        ###### Args
-        - `arg_1`: The first argument.
-        - `arg_2`: The second argument.
-
-        ###### Returns
-        Something you want to use.
-
-        ###### Raises
-        - `MyError`: An error indicating some error.
-        """
-        pass
-
-class MyAdvancedClass:
-    """Summary of MyAdvancedClass, max 80 characters long.
-
-    Some more in-depth information about MyClass.
-    """
-
-    def __init__(arg_1: str, arg_2: int):
-        """Initializes object.
-
-        ###### Args
-        - `arg_1`: The first argument.
-        - `arg_2`: The second argument.
-
-        ###### Raises
-        - `MyError`: An error indicating some error.
-
-        """
-        pass
-
 ```
