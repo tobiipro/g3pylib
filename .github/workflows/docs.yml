@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v3
 
       - run: pip install -e .[doc]
-      - run: pdoc -o docs/ glasses3
+      - run: pdoc -o docs/ g3pylib
 
       - uses: actions/upload-pages-artifact@v1
         with:
