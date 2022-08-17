@@ -12,7 +12,7 @@ from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
 from g3pylib import _utils
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 RTSP_SERVICE_TYPE = "_rtsp._tcp.local."
 G3_SERVICE_TYPE = "_tobii-g3api._tcp.local."
@@ -193,19 +193,19 @@ class _G3ServicesHandler(ServiceListener):
         return self._events
 
     def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        logger.debug(f"The service {name} is updated")
+        _logger.debug(f"The service {name} is updated")
         self._unhandled_events.put_nowait(
             (EventKind.UPDATED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
     def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        logger.debug(f"The service {name} is removed")
+        _logger.debug(f"The service {name} is removed")
         self._unhandled_events.put_nowait(
             (EventKind.REMOVED, G3Service(AsyncServiceInfo(type_, name)))
         )
 
     def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        logger.debug(f"The service {name} is added")
+        _logger.debug(f"The service {name} is added")
         self._unhandled_events.put_nowait(
             (EventKind.ADDED, G3Service(AsyncServiceInfo(type_, name)))
         )
