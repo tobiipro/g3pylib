@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def access_recordings():
-    async with connect_to_glasses(os.environ["G3_HOSTNAME"]) as g3:
+    async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"]) as g3:
         async with g3.recordings.keep_updated_in_context():
             logging.info(
                 f"Recordings before: {list(map(lambda r: r.uuid, g3.recordings.children))}"

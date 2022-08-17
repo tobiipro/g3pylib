@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, AsyncIterator, Generator, Optional, Type, cast
+from typing import Any, AsyncIterator, Coroutine, Generator, Optional, Tuple, Type, cast
 
 import glasses3.websocket
 from glasses3._utils import APIComponent
@@ -32,12 +32,16 @@ from glasses3.recorder import Recorder
 from glasses3.recordings import Recordings
 from glasses3.rudimentary import Rudimentary
 from glasses3.settings import Settings
-from glasses3.streams import Streams
+from glasses3.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT, Streams
 from glasses3.system import System
 from glasses3.websocket import G3WebSocketClientProtocol
-from glasses3.zeroconf import G3Service, G3ServiceDiscovery
+from glasses3.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
 
 __version__ = "0.1.1-alpha"
+
+
+class StreamingNotSupportedError(Exception):
+    """Raised when streaming is attempted but unsupported."""
 
 
 class Glasses3(APIComponent):
@@ -53,7 +57,7 @@ class Glasses3(APIComponent):
     def __init__(
         self,
         connection: G3WebSocketClientProtocol,
-        rtsp_url: str,
+        rtsp_url: Optional[str],
         logger: Optional[LoggerLike] = None,
     ) -> None:
         self.logger: LoggerLike = (
@@ -105,7 +109,7 @@ class Glasses3(APIComponent):
         return self._settings
 
     @property
-    def rtsp_url(self) -> str:
+    def rtsp_url(self) -> Optional[str]:
         """The RTSP URL used for live stream."""
         return self._rtsp_url
 
@@ -136,6 +140,10 @@ class Glasses3(APIComponent):
 
         *Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
         """
+        if self.rtsp_url is None:
+            raise StreamingNotSupportedError(
+                "This Glasses3 object was initialized without a proper RTSP url."
+            )
         async with Streams.connect(
             self.rtsp_url,
             scene_camera=scene_camera,
@@ -155,36 +163,124 @@ class Glasses3(APIComponent):
 
 
 class connect_to_glasses:
+    """This class contains a set of classmethods which are used to connect to a pair of glasses.
+
+    The preferred way to use this class is as an async context manager like this:
+
+    ```python
+    async with connect_to_glasses.with_hostname(glasses_serial_number) as g3:
+        # Here you can call the glasses
+        await g3.get_name()
+    # Here the connection is closed
+    ```
+
+    It does however also support usage without a `with`-block like this:
+
+    ```python
+    g3 = await connect_to_glasses.with_hostname(glasses_serial_number)
+    # Here you can call the glasses
+    await g3.get_name()
+    # You have to remember to close the connection like this:
+    g3.close()
+    # And here g3 still exists but it is unusable
+    ```
+    """
+
     def __init__(
-        self,
-        g3_hostname: Optional[str] = None,
-        service: Optional[G3Service] = None,
+        self, url_generator: Coroutine[Any, Any, Tuple[str, Optional[str]]]
     ) -> None:
-        self.g3_hostname = g3_hostname
-        self.service = service
+        """You should probably not use this constructor unless you need to generate the URLs to your glasses in a very specific way.
+        The regular use cases are covered in the alternative constructors below: `with_url`, `with_zeroconf`, `with_hostname` and `with_service`.
+
+        If you want to use this constructor you need to supply a couroutine which returns a tuple that contains two URLs.
+        The first URL should point to the websocket and the second URL should point to the RTSP endpoint."""
+        self.url_generator = url_generator
+
+    @staticmethod
+    async def _urls_from_zeroconf(using_ip: bool) -> Tuple[str, Optional[str]]:
+        async with G3ServiceDiscovery.listen() as service_discovery:
+            service = await service_discovery.wait_for_single_service(
+                service_discovery.events
+            )
+        return await connect_to_glasses._urls_from_service(service, using_ip)
+
+    @staticmethod
+    async def _urls_from_service(
+        service: G3Service, using_ip: bool
+    ) -> Tuple[str, Optional[str]]:
+        return (service.ws_url(using_ip), service.rtsp_url(using_ip))
+
+    @staticmethod
+    async def _urls_from_hostname(
+        hostname: str, using_zeroconf: bool, using_ip: bool
+    ) -> Tuple[str, Optional[str]]:
+        if not using_zeroconf:
+            return (
+                f"ws://{hostname}{DEFAULT_WEBSOCKET_PATH}",
+                f"rtsp://{hostname}:{DEFAULT_RTSP_PORT}{DEFAULT_RTPS_LIVE_PATH}",
+            )
+        else:
+            service = await G3ServiceDiscovery.request_service(hostname)
+            return await connect_to_glasses._urls_from_service(service, using_ip)
+
+    @classmethod
+    def with_zeroconf(cls, using_ip: bool = True) -> connect_to_glasses:
+        """Connects by listening for available glasses on the network using zeroconf.
+        Connects to the first pair of glasses that answers so if there are multiple glasses on the
+        network the behavior is undefined.
+
+        If `using_ip` is set to True (default) we will generate the the URL used for connection with the ip.
+        If it's set to False we will use the hostname, which will depend on DNS working as it should."""
+        return cls(cls._urls_from_zeroconf(using_ip))
+
+    @classmethod
+    def with_hostname(
+        cls, hostname: str, using_zeroconf: bool = False, using_ip: bool = True
+    ) -> connect_to_glasses:
+        """Connects to the pair of glasses with the given hostname.
+
+        If `using_zeroconf` is set to False (default) we will not depend on zeroconf
+        for fetching details on how to generate the URL and instead use detault values for the URL components specified
+        in the [developer guide](https://www.tobiipro.com/product-listing/tobii-pro-glasses3-api/#ResourcesSpecifications).
+        If it's set to True, all URL components are fetched with zeroconf.
+
+        `using_ip` specifies if the ip or the hostname should be used in the URL used for connecting when zeroconf is used.
+        If the hostname is used, it depends on DNS working as it should."""
+        return cls(cls._urls_from_hostname(hostname, using_zeroconf, using_ip))
+
+    @classmethod
+    def with_service(
+        cls, service: G3Service, using_ip: bool = True
+    ) -> connect_to_glasses:
+        """Connects to the pair of glasses referred to by the given service.
+
+        `using_ip` specifies if the ip or the hostname should be used in the URL used for connecting.
+        If the hostname is used, it depends on DNS working as it should.
+        """
+        return cls(cls._urls_from_service(service, using_ip))
+
+    @classmethod
+    def with_url(cls, ws_url: str, rtsp_url: Optional[str] = None):
+        """Connects to the pair of glasses at the specified URL. `ws_url` should
+        be a websocket URL (starting with `ws://`) and `rtsp_url` should be an RTSP
+        url (starting with `rtsp://` or `rtspt://`)."""
+
+        async def urls():
+            return (ws_url, rtsp_url)
+
+        return cls(urls())
 
     def __await__(self) -> Generator[Any, None, Glasses3]:
         return self.__await_impl__().__await__()
 
     async def __await_impl__(self) -> Glasses3:
-        if self.g3_hostname is None and self.service is None:
-            async with G3ServiceDiscovery.listen() as service_discovery:
-                self.service = await service_discovery.wait_for_single_service(
-                    service_discovery.events
-                )
-            self.g3_hostname = self.service.hostname
-        elif self.service is None and self.g3_hostname is not None:
-            self.service = await G3ServiceDiscovery.request_service(self.g3_hostname)
-        elif self.g3_hostname is None and self.service is not None:
-            self.g3_hostname = self.service.hostname
-        else:
-            raise ValueError
-
-        connection = await glasses3.websocket.connect(self.g3_hostname)
-        connection = cast(G3WebSocketClientProtocol, connection)
+        ws_url, rtsp_url = await self.url_generator
+        connection = cast(
+            G3WebSocketClientProtocol, await glasses3.websocket.connect(ws_url)
+        )
         connection.start_receiver_task()
         self.connection = connection
-        return Glasses3(connection, self.service.rtsp_url)
+        return Glasses3(connection, rtsp_url)
 
     async def __aenter__(self) -> Glasses3:
         return await self

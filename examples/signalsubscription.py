@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def subscribe_to_signal():
-    async with connect_to_glasses(os.environ["G3_HOSTNAME"]) as g3:
+    async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"]) as g3:
         signal_queue, unsubscribe = await g3.recordings.subscribe_to_child_added()
         await g3.recorder.start()
         await asyncio.sleep(3)

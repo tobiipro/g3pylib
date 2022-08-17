@@ -365,7 +365,7 @@ class G3App(App, ScreenManager):
         self.control_events.put_nowait(event)
 
     async def backend_control(self, hostname: str) -> None:
-        async with connect_to_glasses(hostname) as g3:
+        async with connect_to_glasses.with_hostname(hostname) as g3:
             async with g3.recordings.keep_updated_in_context():
                 update_recordings_task = self.create_task(
                     self.update_recordings(g3, g3.recordings.events),
