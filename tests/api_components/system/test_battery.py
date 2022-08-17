@@ -1,7 +1,7 @@
 import pytest
 
-from glasses3 import Glasses3
-from glasses3.system.battery import BatteryState
+from g3pylib import Glasses3
+from g3pylib.system.battery import BatteryState
 
 
 async def test_get_charging(g3: Glasses3):

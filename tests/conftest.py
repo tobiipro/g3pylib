@@ -4,7 +4,7 @@ from typing import AsyncIterable
 
 import pytest
 
-from glasses3 import Glasses3, connect_to_glasses
+from g3pylib import Glasses3, connect_to_glasses
 
 
 @pytest.fixture(scope="module")

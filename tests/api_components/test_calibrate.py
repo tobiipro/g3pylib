@@ -1,6 +1,6 @@
 from typing import Any, List, cast
 
-from glasses3 import Glasses3
+from g3pylib import Glasses3
 
 
 async def test_get_name(g3: Glasses3):

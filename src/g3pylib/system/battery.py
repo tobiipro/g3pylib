@@ -2,9 +2,9 @@ import asyncio
 from enum import Enum
 from typing import Awaitable, Tuple, cast
 
-from glasses3._utils import APIComponent, EndpointKind
-from glasses3.g3typing import URI, SignalBody
-from glasses3.websocket import G3WebSocketClientProtocol
+from g3pylib._utils import APIComponent, EndpointKind
+from g3pylib.g3typing import URI, SignalBody
+from g3pylib.websocket import G3WebSocketClientProtocol
 
 
 class BatteryState(Enum):

@@ -2,7 +2,7 @@ from typing import List, cast
 
 import pytest
 
-from glasses3 import Glasses3
+from g3pylib import Glasses3
 
 
 async def test_get_name(g3: Glasses3):

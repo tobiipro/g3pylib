@@ -24,18 +24,18 @@ from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Any, AsyncIterator, Coroutine, Generator, Optional, Tuple, Type, cast
 
-import glasses3.websocket
-from glasses3._utils import APIComponent
-from glasses3.calibrate import Calibrate
-from glasses3.g3typing import URI, LoggerLike
-from glasses3.recorder import Recorder
-from glasses3.recordings import Recordings
-from glasses3.rudimentary import Rudimentary
-from glasses3.settings import Settings
-from glasses3.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT, Streams
-from glasses3.system import System
-from glasses3.websocket import G3WebSocketClientProtocol
-from glasses3.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
+import g3pylib.websocket
+from g3pylib._utils import APIComponent
+from g3pylib.calibrate import Calibrate
+from g3pylib.g3typing import URI, LoggerLike
+from g3pylib.recorder import Recorder
+from g3pylib.recordings import Recordings
+from g3pylib.rudimentary import Rudimentary
+from g3pylib.settings import Settings
+from g3pylib.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT, Streams
+from g3pylib.system import System
+from g3pylib.websocket import G3WebSocketClientProtocol
+from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
 
 __version__ = "0.1.1-alpha"
 
@@ -276,7 +276,7 @@ class connect_to_glasses:
     async def __await_impl__(self) -> Glasses3:
         ws_url, rtsp_url = await self.url_generator
         connection = cast(
-            G3WebSocketClientProtocol, await glasses3.websocket.connect(ws_url)
+            G3WebSocketClientProtocol, await g3pylib.websocket.connect(ws_url)
         )
         connection.start_receiver_task()
         self.connection = connection

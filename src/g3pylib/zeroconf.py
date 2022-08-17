@@ -10,7 +10,7 @@ from typing import AsyncIterator, Dict, List, Optional, Tuple, Type, cast
 from zeroconf import IPVersion, ServiceListener, Zeroconf
 from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
 
-from glasses3 import _utils
+from g3pylib import _utils
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import os
 
 import dotenv
 
-from glasses3.zeroconf import G3ServiceDiscovery
+from g3pylib.zeroconf import G3ServiceDiscovery
 
 logging.basicConfig(level=logging.INFO)
 

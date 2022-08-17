@@ -3,7 +3,7 @@ from typing import Any, List, cast
 
 import pytest
 
-from glasses3 import Glasses3
+from g3pylib import Glasses3
 
 
 class TestStreamNotRunning:

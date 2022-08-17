@@ -3,10 +3,10 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Awaitable, Tuple, cast
 
-from glasses3 import _utils
-from glasses3._utils import APIComponent, EndpointKind
-from glasses3.g3typing import URI, JSONObject, SignalBody
-from glasses3.websocket import G3WebSocketClientProtocol
+from g3pylib import _utils
+from g3pylib._utils import APIComponent, EndpointKind
+from g3pylib.g3typing import URI, JSONObject, SignalBody
+from g3pylib.websocket import G3WebSocketClientProtocol
 
 
 class Rudimentary(APIComponent):

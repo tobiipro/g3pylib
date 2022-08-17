@@ -5,7 +5,7 @@ import os
 import cv2
 import dotenv
 
-from glasses3 import connect_to_glasses
+from g3pylib import connect_to_glasses
 
 logging.basicConfig(level=logging.INFO)
 

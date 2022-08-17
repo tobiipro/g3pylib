@@ -49,9 +49,6 @@ example-app = ["kivy ~= 2.1.0"]
 [project.urls]
 Home = "https://github.com/tobiipro/g3pylib"
 
-[tool.flit.module]
-name = "glasses3"
-
 [tool.pyright]
 include = ["src", "examples", "tests"]
 typeCheckingMode = "basic"
