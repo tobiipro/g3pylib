@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 async def stream_rtsp():
     async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"]) as g3:
-        async with g3.stream_rtsp(gaze=True) as streams:
+        async with g3.stream_rtsp(scene_camera=False, gaze=True) as streams:
             async with streams.gaze.decode() as gaze_stream:
                 for i in range(300):
                     gaze = await gaze_stream.get()
