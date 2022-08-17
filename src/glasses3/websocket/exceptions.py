@@ -8,3 +8,14 @@ class UnsubscribeError(Exception):
 
 class InvalidResponseError(Exception):
     """Raised when the server responds with an invalid message."""
+
+
+class GlassesError(Exception):
+    """Raised when the glasses responds with an error websocket message."""
+
+    error_code: int
+    """The received error code."""
+
+    def __init__(self, message: str, error_code: int) -> None:
+        self.error_code = error_code
+        super().__init__(message)

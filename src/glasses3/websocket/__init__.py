@@ -24,6 +24,7 @@ from glasses3.g3typing import (
     SubscriptionId,
 )
 from glasses3.websocket.exceptions import (
+    GlassesError,
     InvalidResponseError,
     SubscribeError,
     UnsubscribeError,
@@ -199,16 +200,29 @@ class G3WebSocketClientProtocol(
                 self.g3_logger.debug(f"Received {json_message}")
                 match json_message:
                     case {"id": message_id, "body": message_body}:
-                        del json_message["id"]
                         self._future_messages[cast(MessageId, message_id)].set_result(
                             message_body
+                        )
+                    case {
+                        "id": message_id,
+                        "error": error_code,
+                        "message": error_message,
+                    }:
+                        self._future_messages[
+                            cast(MessageId, message_id)
+                        ].set_exception(
+                            GlassesError(
+                                cast(str, error_message), cast(int, error_code)
+                            )
                         )
                     case {"signal": signal_id, "body": signal_body}:
                         self._receive_signal(
                             cast(SignalId, signal_id), cast(SignalBody, signal_body)
                         )
                     case _:
-                        self.g3_logger.debug("Invalid response to receiver task")
+                        self.g3_logger.debug(
+                            f"Invalid response to receiver task: {json_message}"
+                        )
                         raise InvalidResponseError
 
         self.g3_logger.debug("Receiver task starting")
