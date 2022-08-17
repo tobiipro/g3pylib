@@ -4,8 +4,9 @@
 g3pylib is a python wrapper around the Glasses3 web API which lets you control Glasses3 devices.
 
 ## API Endpoints
-All endpoints in the `glasses3` module corresponding to an endpoint in the Glasses3 web API are undocumented and placed first in each module.
-The following naming convention is used to translate web API endpoint names to `glasses3` API endpoint names:
+All endpoints in the `g3pylib` module corresponding to an endpoint in the Glasses3 web API are undocumented and placed first in each module.
+The following naming convention is used to translate web API endpoint names to `g3pylib
+` API endpoint names:
  - Properties: example_property -> get_example_property/set_example_property
  - Actions: example_action -> example_action
  - Signals: example_signal -> subscribe_to_example_signal

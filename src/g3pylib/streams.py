@@ -36,7 +36,7 @@ from g3pylib.g3typing import JSONObject
 DEFAULT_RTPS_LIVE_PATH = "/live/all"
 DEFAULT_RTSP_PORT = 8554
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 class StreamType(Enum):
@@ -394,7 +394,7 @@ class VideoStream(Stream):
                         await nal_unit_queue.put(self._nal_unit_builder)
                         self._demux_out_count += 1
                 else:
-                    logger.warning(f"Unhandled NAL unit of type {nal_unit.type}")
+                    _logger.warning(f"Unhandled NAL unit of type {nal_unit.type}")
 
         demuxer_task = _utils.create_task(demuxer(), name="demuxer")
         try:
