@@ -2,9 +2,13 @@ import asyncio
 import logging
 from typing import List, Optional, Set, Tuple, cast
 
+import numpy as np
 from eventkinds import AppEventKind, ControlEventKind
 from kivy.app import App
+from kivy.clock import Clock
 from kivy.core.window import Window
+from kivy.graphics import Rectangle
+from kivy.graphics.texture import Texture
 from kivy.lang.builder import Builder
 from kivy.properties import BooleanProperty
 from kivy.uix.label import Label
@@ -107,8 +111,22 @@ Builder.load_string("""
 
 <LiveScreen>:
     BoxLayout:
-        Label:
-            text: "Here you can see your glasses in action."
+        Widget:
+            id: display
+            size_hint_x: 0.8
+            size_hint_y: 1
+        BoxLayout:
+            orientation: "vertical"
+            size_hint_x: 0.2
+            Button:
+                text: "Start"
+                on_press: app.send_control_event(ControlEventKind.START_LIVE)
+            Button:
+                text: "Stop"
+                on_press: app.send_control_event(ControlEventKind.STOP_LIVE)
+
+
+
 
 <SelectableList>:
     viewclass: 'SelectableLabel'
@@ -242,7 +260,8 @@ class RecorderScreen(Screen):
 
 
 class LiveScreen(Screen):
-    pass
+    def clear(self, *args):
+        self.ids.display.canvas.clear()
 
 
 class UserMessagePopup(Popup):
@@ -256,6 +275,7 @@ class G3App(App, ScreenManager):
         self.tasks: Set[asyncio.Task] = set()
         self.app_events: asyncio.Queue[AppEventKind] = asyncio.Queue()
         self.control_events: asyncio.Queue[ControlEventKind] = asyncio.Queue()
+        self.live_stream_task: Optional[asyncio.Task] = None
         self.add_widget(DiscoveryScreen(name="discovery"))
         self.add_widget(ControlScreen(name="control"))
 
@@ -391,7 +411,83 @@ class G3App(App, ScreenManager):
                 await g3.recorder.stop()
             case ControlEventKind.DELETE_RECORDING:
                 await self.delete_selected_recording(g3)
+            case ControlEventKind.START_LIVE:
+                self.start_live_stream(g3)
+            case ControlEventKind.STOP_LIVE:
+                await self.stop_live_stream()
         self.get_screen("control").set_task_running_status(False)
+
+    def start_live_stream(self, g3: Glasses3) -> None:
+        async def live_stream():
+            async with g3.stream_rtsp() as streams:
+                async with streams.scene_camera.decode() as decoded_stream:
+
+                    async def update_frame():
+                        while True:
+                            self.latest_frame = await decoded_stream.get()
+
+                    def draw_frame(dt):  # pass display as argument?
+                        with display.canvas:
+                            image = np.flip(
+                                self.latest_frame.to_ndarray(format="bgr24"), 0
+                            )
+                            texture = Texture.create(
+                                size=(image.shape[1], image.shape[0]), colorfmt="bgr"
+                            )
+                            image = np.reshape(image, -1)
+                            texture.blit_buffer(
+                                image, colorfmt="bgr", bufferfmt="ubyte"
+                            )
+                            Rectangle(
+                                texture=texture,
+                                pos=(0, (display.top - display.width * 9 / 16) / 2),
+                                size=(display.width, display.width * 9 / 16),
+                            )
+                        if dt > self.frame_rate:
+                            self.frame_rate = dt
+                        elif dt < self.frame_rate:
+                            self.frame_rate -= (self.frame_rate - dt) / 2
+                        if not self.read_frames_task.done():
+                            Clock.schedule_once(draw_frame, self.frame_rate)
+                        logging.debug(streams.scene_camera.stats)
+
+                    live_screen = self.get_screen("control").ids.sm.get_screen("live")
+                    display = live_screen.ids.display
+                    Window.bind(on_resize=live_screen.clear)
+                    self.latest_frame = await decoded_stream.get()
+                    self.read_frames_task = self.create_task(
+                        update_frame(), name="update_frame"
+                    )
+                    self.frame_rate = 1 / 20
+                    Clock.schedule_once(draw_frame, self.frame_rate)
+                    await self.read_frames_task
+
+        def live_stream_task_running() -> bool:
+            if self.live_stream_task is not None:
+                if not self.live_stream_task.done():
+                    return True
+                else:
+                    return False
+            else:
+                return False
+
+        if live_stream_task_running():
+            logging.info("Task not started: live_stream_task already running.")
+        else:
+            self.live_stream_task = self.create_task(
+                live_stream(), name="live_stream_task"
+            )
+
+    async def stop_live_stream(self) -> None:
+        if self.read_frames_task != None:
+            if not self.read_frames_task.cancelled():
+                await self.cancel_task(self.read_frames_task)
+        if self.live_stream_task != None:
+            if not self.live_stream_task.cancelled():
+                await self.cancel_task(self.live_stream_task)
+        live_screen = self.get_screen("control").ids.sm.get_screen("live")
+        Window.unbind(on_resize=live_screen.clear)
+        live_screen.clear()
 
     async def delete_selected_recording(self, g3: Glasses3) -> None:
         selected = (
