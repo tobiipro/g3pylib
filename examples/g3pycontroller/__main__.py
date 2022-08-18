@@ -51,7 +51,6 @@ Builder.load_string("""
             text: "Connect"
             on_press: app.send_app_event(AppEventKind.ENTER_CONTROL_SESSION)
 
-
 <UserMessagePopup>:
     size_hint: None, None
     size: 400, 200
@@ -124,9 +123,6 @@ Builder.load_string("""
             Button:
                 text: "Stop"
                 on_press: app.send_control_event(ControlEventKind.STOP_LIVE)
-
-
-
 
 <SelectableList>:
     viewclass: 'SelectableLabel'
