@@ -13,9 +13,8 @@ async def test_set_gaze_frequency(g3: Glasses3):
 
 async def test_gaze_overlay(g3: Glasses3):
     gaze_overlay = await g3.settings.get_gaze_overlay()
-    assert type(gaze_overlay) is bool
-    new_gaze_overlay = await g3.settings.set_gaze_overlay(not gaze_overlay)
-    assert new_gaze_overlay == (not gaze_overlay)
+    assert await g3.settings.set_gaze_overlay(not gaze_overlay)
+    assert await g3.settings.set_gaze_overlay(gaze_overlay)
 
 
 async def test_get_name(g3: Glasses3):
