@@ -175,7 +175,7 @@ class Recording(APIComponent):
                 except KeyError:
                     print(
                         "Could not retrieve file name for recording from recording data."
-                    )  # TODO: sufficient error handling?
+                    )
                     raise
                 return f"{data_url}/{scenevideo_file_name}"
 
@@ -191,6 +191,6 @@ class Recording(APIComponent):
                 except KeyError:
                     print(
                         "Could not retrieve file name for gaze data from recording data."
-                    )  # TODO: sufficient error handling?
+                    )
                     raise
                 return f"{data_url}/{gaze_file_name}?use-content-encoding=true"
