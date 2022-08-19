@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import cast
 
+import aiohttp
 import pytest
 
 from g3pylib import Glasses3
@@ -96,3 +97,17 @@ async def test_meta_data(recording: Recording):
     assert meta_keys == ["RuVersion", "HuSerial", "RuSerial", "key1"]
     non_existing_message = await recording.meta_lookup("key3")
     assert non_existing_message == None
+
+
+async def test_get_scenevideo_url(recording: Recording):
+    url = await recording.get_scenevideo_url()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            assert response.status == 200
+
+
+async def test_get_gazedata_url(recording: Recording):
+    url = await recording.get_gazedata_url()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            assert response.status == 200
