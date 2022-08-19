@@ -45,7 +45,9 @@ examples = [
     "python-dotenv",
     "opencv-python"
 ]
-example-app = ["kivy ~= 2.1.0"]
+example-app = [
+    "kivy[media] ~= 2.1.0"
+]
 
 [project.urls]
 Home = "https://github.com/tobiipro/g3pylib"
