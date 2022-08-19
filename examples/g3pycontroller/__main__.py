@@ -183,7 +183,7 @@ class DiscoveryScreen(Screen):
         self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]
     ) -> None:
         self.ids.services.data.append(
-            {"id": hostname, "text": f"{hostname}\n{ipv4}\n{ipv6}"}
+            {"hostname": hostname, "ipv4": ipv4, "text": f"{hostname}\n{ipv4}\n{ipv6}"}
         )
         logging.info(f"Services: Added {hostname}, {ipv4}, {ipv6}")
 
@@ -192,7 +192,8 @@ class DiscoveryScreen(Screen):
     ) -> None:
         services = self.ids.services
         for service in services.data:
-            if service["id"] == hostname:
+            if service["hostname"] == hostname:
+                service["ipv4"] = ipv4
                 service["text"] = f"{hostname}\n{ipv4}\n{ipv6}"
                 logging.info(f"Services: Updated {hostname}, {ipv4}, {ipv6}")
 
@@ -201,7 +202,7 @@ class DiscoveryScreen(Screen):
     ) -> None:
         services = self.ids.services
         services.data = [
-            service for service in services.data if service["id"] != hostname
+            service for service in services.data if service["hostname"] != hostname
         ]
         logging.info(f"Services: Removed {hostname}, {ipv4}, {ipv6}")
 
@@ -306,11 +307,11 @@ class G3App(App, ScreenManager):
             popup.open()
             return False
         else:
-            hostname = self.get_screen("discovery").ids.services.data[selected[0]]["id"]
+            selected = self.get_screen("discovery").ids.services.data[selected[0]]
             self.backend_control_task = self.create_task(
-                self.backend_control(hostname), name="backend_control"
+                self.backend_control(selected["ipv4"]), name="backend_control"
             )
-            self.get_screen("control").set_hostname(hostname)
+            self.get_screen("control").set_hostname(selected["hostname"])
             self.switch_to_screen("control")
             return True
 
