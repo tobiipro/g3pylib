@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 from enum import Enum, auto
 from types import TracebackType
@@ -325,25 +326,31 @@ class G3ServiceDiscovery:
     async def wait_for_single_service(
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
         ip_version: IPVersion = IPVersion.All,
-        timeout: int = 3,
+        timeout: float = 3,
     ) -> G3Service:
         """Returns the first available `G3Service`.
 
-        Continuously reads from `events` until a `G3Service` is available. The service is then returned.
+        `events` is the `G3DiscoveryService.events` queue used to look for service events.
+        `ip_version` specifies what type(s) of ip address are required in the returned service.
+        `timeout` defines the time in seconds before `asyncio.TimeoutError` is raised.
 
         Must be called in the `listen` context to find a service.
         """
+        t_start = time.time()
+        t_done = t_start + timeout
         while True:
-            event = await asyncio.wait_for(events.get(), timeout=timeout)
-            if event[0] in [EventKind.UPDATED, EventKind.ADDED]:
-                service = event[1]
-                match ip_version:
-                    case IPVersion.All:
-                        if service.ipv4_address and service.ipv6_address:
-                            return service
-                    case IPVersion.V4Only:
-                        if service.ipv4_address:
-                            return service
-                    case IPVersion.V6Only:
-                        if service.ipv6_address:
-                            return service
+            time_left = t_done - time.time()
+            if time_left > 0:
+                event = await asyncio.wait_for(events.get(), timeout=time_left)
+                if event[0] in [EventKind.UPDATED, EventKind.ADDED]:
+                    service = event[1]
+                    match ip_version:
+                        case IPVersion.All:
+                            if service.ipv4_address and service.ipv6_address:
+                                return service
+                        case IPVersion.V4Only:
+                            if service.ipv4_address:
+                                return service
+                        case IPVersion.V6Only:
+                            if service.ipv6_address:
+                                return service
