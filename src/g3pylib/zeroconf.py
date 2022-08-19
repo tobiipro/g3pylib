@@ -325,6 +325,7 @@ class G3ServiceDiscovery:
     async def wait_for_single_service(
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
         ip_version: IPVersion = IPVersion.All,
+        timeout: int = 3,
     ) -> G3Service:
         """Returns the first available `G3Service`.
 
@@ -333,7 +334,7 @@ class G3ServiceDiscovery:
         Must be called in the `listen` context to find a service.
         """
         while True:
-            event = await events.get()
+            event = await asyncio.wait_for(events.get(), timeout=timeout)
             if event[0] in [EventKind.UPDATED, EventKind.ADDED]:
                 service = event[1]
                 match ip_version:
