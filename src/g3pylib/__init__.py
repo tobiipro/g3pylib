@@ -40,6 +40,8 @@ from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscove
 
 __version__ = "0.2.0-alpha"
 
+_logger = logging.getLogger(__name__)
+
 
 class StreamingNotSupportedError(Exception):
     """Raised when streaming is attempted but unsupported."""
@@ -276,6 +278,7 @@ class connect_to_glasses:
 
     async def __await_impl__(self) -> Glasses3:
         ws_url, rtsp_url = await self.url_generator
+        _logger.info(f"Attempting connection to websocket {ws_url} and RTSP {rtsp_url}")
         connection = cast(
             G3WebSocketClientProtocol, await g3pylib.websocket.connect(ws_url)
         )
