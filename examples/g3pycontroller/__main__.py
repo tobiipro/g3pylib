@@ -272,6 +272,7 @@ class G3App(App, ScreenManager):
         self.app_events: asyncio.Queue[AppEventKind] = asyncio.Queue()
         self.control_events: asyncio.Queue[ControlEventKind] = asyncio.Queue()
         self.live_stream_task: Optional[asyncio.Task] = None
+        self.read_frames_task: Optional[asyncio.Task] = None
         self.add_widget(DiscoveryScreen(name="discovery"))
         self.add_widget(ControlScreen(name="control"))
 
@@ -417,53 +418,49 @@ class G3App(App, ScreenManager):
         async def live_stream():
             async with g3.stream_rtsp() as streams:
                 async with streams.scene_camera.decode() as decoded_stream:
-
-                    async def update_frame():
-                        while True:
-                            self.latest_frame = await decoded_stream.get()
-
-                    def draw_frame(dt):  # pass display as argument?
-                        with display.canvas:
-                            image = np.flip(
-                                self.latest_frame.to_ndarray(format="bgr24"), 0
-                            )
-                            texture = Texture.create(
-                                size=(image.shape[1], image.shape[0]), colorfmt="bgr"
-                            )
-                            image = np.reshape(image, -1)
-                            texture.blit_buffer(
-                                image, colorfmt="bgr", bufferfmt="ubyte"
-                            )
-                            Rectangle(
-                                texture=texture,
-                                pos=(0, (display.top - display.width * 9 / 16) / 2),
-                                size=(display.width, display.width * 9 / 16),
-                            )
-                        if dt > self.frame_rate:
-                            self.frame_rate = dt
-                        elif dt < self.frame_rate:
-                            self.frame_rate -= (self.frame_rate - dt) / 2
-                        if not self.read_frames_task.done():
-                            Clock.schedule_once(draw_frame, self.frame_rate)
-                        logging.debug(streams.scene_camera.stats)
-
                     live_screen = self.get_screen("control").ids.sm.get_screen("live")
-                    display = live_screen.ids.display
                     Window.bind(on_resize=live_screen.clear)
                     self.latest_frame = await decoded_stream.get()
                     self.read_frames_task = self.create_task(
-                        update_frame(), name="update_frame"
+                        update_frame(decoded_stream, streams), name="update_frame"
                     )
-                    self.frame_rate = 1 / 20
+                    self.frame_rate = 1 / 25
                     Clock.schedule_once(draw_frame, self.frame_rate)
                     await self.read_frames_task
 
+        async def update_frame(decoded_stream, streams):
+            while True:
+                self.latest_frame = await decoded_stream.get()
+                logging.debug(streams.scene_camera.stats)
+
+        def draw_frame(dt):
+            display = self.get_screen("control").ids.sm.get_screen("live").ids.display
+            update_frame_rate(dt)
+            if self.read_frames_task is not None:
+                if not self.read_frames_task.done():
+                    Clock.schedule_once(draw_frame, self.frame_rate)
+            with display.canvas:
+                image = np.flip(self.latest_frame.to_ndarray(format="bgr24"), 0)
+                texture = Texture.create(
+                    size=(image.shape[1], image.shape[0]), colorfmt="bgr"
+                )
+                image = np.reshape(image, -1)
+                texture.blit_buffer(image, colorfmt="bgr", bufferfmt="ubyte")
+                Rectangle(
+                    texture=texture,
+                    pos=(0, (display.top - display.width * 9 / 16) / 2),
+                    size=(display.width, display.width * 9 / 16),
+                )
+
+        def update_frame_rate(last_dt):
+            if last_dt > self.frame_rate:
+                self.frame_rate = last_dt
+            elif last_dt < self.frame_rate:
+                self.frame_rate -= (self.frame_rate - last_dt) / 2
+
         def live_stream_task_running() -> bool:
             if self.live_stream_task is not None:
-                if not self.live_stream_task.done():
-                    return True
-                else:
-                    return False
+                return not self.live_stream_task.done()
             else:
                 return False
 
@@ -475,10 +472,10 @@ class G3App(App, ScreenManager):
             )
 
     async def stop_live_stream(self) -> None:
-        if self.read_frames_task != None:
+        if self.read_frames_task is not None:
             if not self.read_frames_task.cancelled():
                 await self.cancel_task(self.read_frames_task)
-        if self.live_stream_task != None:
+        if self.live_stream_task is not None:
             if not self.live_stream_task.cancelled():
                 await self.cancel_task(self.live_stream_task)
         live_screen = self.get_screen("control").ids.sm.get_screen("live")
