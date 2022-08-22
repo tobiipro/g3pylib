@@ -325,7 +325,7 @@ class G3ServiceDiscovery:
     @staticmethod
     async def wait_for_single_service(
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
-        timeout: float,
+        timeout: float = 3000,
         ip_version: IPVersion = IPVersion.All,
     ) -> G3Service:
         """Returns the first available `G3Service`.

@@ -231,7 +231,7 @@ class connect_to_glasses:
 
     @classmethod
     def with_zeroconf(
-        cls, using_ip: bool = True, timeout: float = 3
+        cls, using_ip: bool = True, timeout: float = 3000
     ) -> connect_to_glasses:
         """Connects by listening for available glasses on the network using zeroconf.
         Connects to the first pair of glasses that answers so if there are multiple glasses on the
