@@ -89,6 +89,10 @@ Builder.load_string("""
             id: sm
             transition: NoTransition()
 
+<RecordingScreen>:
+    VideoPlayer:
+        id: videoplayer
+
 <RecorderScreen>:
     BoxLayout:
         BoxLayout:
@@ -105,6 +109,9 @@ Builder.load_string("""
             Button:
                 text: "Delete"
                 on_press: app.send_control_event(ControlEventKind.DELETE_RECORDING)
+            Button:
+                text: "Play"
+                on_press: app.send_control_event(ControlEventKind.PLAY_RECORDING)
         SelectableList:
             id: recordings
 
@@ -183,7 +190,7 @@ class DiscoveryScreen(Screen):
         self, hostname: str, ipv4: Optional[str], ipv6: Optional[str]
     ) -> None:
         self.ids.services.data.append(
-            {"id": hostname, "text": f"{hostname}\n{ipv4}\n{ipv6}"}
+            {"hostname": hostname, "text": f"{hostname}\n{ipv4}\n{ipv6}"}
         )
         logging.info(f"Services: Added {hostname}, {ipv4}, {ipv6}")
 
@@ -192,7 +199,7 @@ class DiscoveryScreen(Screen):
     ) -> None:
         services = self.ids.services
         for service in services.data:
-            if service["id"] == hostname:
+            if service["hostname"] == hostname:
                 service["text"] = f"{hostname}\n{ipv4}\n{ipv6}"
                 logging.info(f"Services: Updated {hostname}, {ipv4}, {ipv6}")
 
@@ -201,7 +208,7 @@ class DiscoveryScreen(Screen):
     ) -> None:
         services = self.ids.services
         services.data = [
-            service for service in services.data if service["id"] != hostname
+            service for service in services.data if service["hostname"] != hostname
         ]
         logging.info(f"Services: Removed {hostname}, {ipv4}, {ipv6}")
 
@@ -214,6 +221,7 @@ class ControlScreen(Screen):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.ids.sm.add_widget(RecorderScreen(name="recorder"))
+        self.ids.sm.add_widget(RecordingScreen(name="recording"))
         self.ids.sm.add_widget(LiveScreen(name="live"))
 
     def clear(self) -> None:
@@ -222,6 +230,8 @@ class ControlScreen(Screen):
 
     def switch_to_screen(self, screen: str) -> None:
         self.ids.sm.current = screen
+        if self.ids.sm.current == "recording":
+            self.ids.sm.get_screen("recording").ids.videoplayer.state = "stop"
 
     def set_task_running_status(self, is_running: bool) -> None:
         if is_running:
@@ -231,6 +241,10 @@ class ControlScreen(Screen):
 
     def set_hostname(self, hostname: str) -> None:
         self.ids.hostname.text = hostname
+
+
+class RecordingScreen(Screen):
+    pass
 
 
 class RecorderScreen(Screen):
@@ -306,7 +320,9 @@ class G3App(App, ScreenManager):
             popup.open()
             return False
         else:
-            hostname = self.get_screen("discovery").ids.services.data[selected[0]]["id"]
+            hostname = self.get_screen("discovery").ids.services.data[selected[0]][
+                "hostname"
+            ]
             self.backend_control_task = self.create_task(
                 self.backend_control(hostname), name="backend_control"
             )
@@ -412,6 +428,8 @@ class G3App(App, ScreenManager):
                 self.start_live_stream(g3)
             case ControlEventKind.STOP_LIVE:
                 await self.stop_live_stream()
+            case ControlEventKind.PLAY_RECORDING:
+                await self.play_selected_recording(g3)
         self.get_screen("control").set_task_running_status(False)
 
     def start_live_stream(self, g3: Glasses3) -> None:
@@ -483,22 +501,34 @@ class G3App(App, ScreenManager):
         Window.unbind(on_resize=live_screen.clear)
         live_screen.clear()
 
-    async def delete_selected_recording(self, g3: Glasses3) -> None:
-        selected = (
-            self.get_screen("control")
-            .ids.sm.get_screen("recorder")
-            .ids.recordings.ids.selectables.selected_nodes
+    def get_selected_recording(self) -> Optional[str]:
+        recordings = (
+            self.get_screen("control").ids.sm.get_screen("recorder").ids.recordings
         )
+        selected = recordings.ids.selectables.selected_nodes
         if len(selected) != 1:
             popup = UserMessagePopup(title="No recording selected")
             popup.ids.message_label.text = "Please select a recording and try again."
             popup.open()
         else:
-            uuid = (
+            return recordings.data[selected[0]]["uuid"]
+
+    async def play_selected_recording(self, g3: Glasses3) -> None:
+        uuid = self.get_selected_recording()
+        if uuid is not None:
+            self.get_screen("control").switch_to_screen("recording")
+            file_url = await g3.recordings.get_recording(uuid).get_scenevideo_url()
+            videoplayer = (
                 self.get_screen("control")
-                .ids.sm.get_screen("recorder")
-                .ids.recordings.data[selected[0]]["uuid"]
+                .ids.sm.get_screen("recording")
+                .ids.videoplayer
             )
+            videoplayer.source = file_url
+            videoplayer.state = "play"
+
+    async def delete_selected_recording(self, g3: Glasses3) -> None:
+        uuid = self.get_selected_recording()
+        if uuid is not None:
             await g3.recordings.delete(uuid)
 
     async def update_recordings(self, g3, recordings_events):
