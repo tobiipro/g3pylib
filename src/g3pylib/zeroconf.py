@@ -325,19 +325,19 @@ class G3ServiceDiscovery:
     @staticmethod
     async def wait_for_single_service(
         events: asyncio.Queue[Tuple[EventKind, G3Service]],
+        timeout: float,
         ip_version: IPVersion = IPVersion.All,
-        timeout: float = 3,
     ) -> G3Service:
         """Returns the first available `G3Service`.
 
         `events` is the `G3DiscoveryService.events` queue used to look for service events.
         `ip_version` specifies what type(s) of ip address are required in the returned service.
-        `timeout` defines the time in seconds before `asyncio.TimeoutError` is raised.
+        `timeout` defines the time in milliseconds before `asyncio.TimeoutError` is raised.
 
         Must be called in the `listen` context to find a service.
         """
         t_start = time.time()
-        t_done = t_start + timeout
+        t_done = t_start + timeout / 1000
         while True:
             time_left = t_done - time.time()
             if time_left > 0:

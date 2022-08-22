@@ -201,12 +201,12 @@ class connect_to_glasses:
 
     @staticmethod
     async def _urls_from_zeroconf(
-        using_ip: bool, timeout: float = 3
+        using_ip: bool, timeout: float
     ) -> Tuple[str, Optional[str]]:
         async with G3ServiceDiscovery.listen() as service_discovery:
             service = await service_discovery.wait_for_single_service(
                 service_discovery.events,
-                timeout=timeout,
+                timeout,
             )
         return await connect_to_glasses._urls_from_service(service, using_ip)
 
@@ -240,7 +240,7 @@ class connect_to_glasses:
         If `using_ip` is set to True (default) we will generate the the URL used for connection with the ip.
         If it's set to False we will use the hostname, which will depend on DNS working as it should.
 
-        `timeout` defines the time in seconds before `asyncio.TimeoutError` is raised."""
+        `timeout` defines the time in milliseconds before `asyncio.TimeoutError` is raised."""
         return cls(cls._urls_from_zeroconf(using_ip, timeout))
 
     @classmethod
