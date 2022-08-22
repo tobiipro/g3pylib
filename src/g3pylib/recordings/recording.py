@@ -173,14 +173,14 @@ class Recording(APIComponent):
         async with aiohttp.ClientSession() as session:
             async with session.get(data_url) as response:
                 data = json.loads(await response.text())
-                try:
-                    scenevideo_file_name = data["scenecamera"]["file"]
-                except KeyError:
-                    self.logger.warning(
-                        f"Could not retrieve file name for recording from recording data collected from {data_url}."
-                    )
-                    raise InvalidResponseError
-                return f"{data_url}/{scenevideo_file_name}"
+        try:
+            scenevideo_file_name = data["scenecamera"]["file"]
+        except KeyError:
+            self.logger.warning(
+                f"Could not retrieve file name for recording from recording data collected from {data_url}."
+            )
+            raise InvalidResponseError
+        return f"{data_url}/{scenevideo_file_name}"
 
     async def get_gazedata_url(self) -> str:
         """Returns a URL to the recording's decompressed gaze data file."""
@@ -189,11 +189,11 @@ class Recording(APIComponent):
         async with aiohttp.ClientSession() as session:
             async with session.get(data_url) as response:
                 data = json.loads(await response.text())
-                try:
-                    gaze_file_name = data["gaze"]["file"]
-                except KeyError:
-                    self.logger.warning(
-                        f"Could not retrieve file name for gaze data from recording data collected from {data_url}."
-                    )
-                    raise InvalidResponseError
-                return f"{data_url}/{gaze_file_name}?use-content-encoding=true"
+        try:
+            gaze_file_name = data["gaze"]["file"]
+        except KeyError:
+            self.logger.warning(
+                f"Could not retrieve file name for gaze data from recording data collected from {data_url}."
+            )
+            raise InvalidResponseError
+        return f"{data_url}/{gaze_file_name}?use-content-encoding=true"
