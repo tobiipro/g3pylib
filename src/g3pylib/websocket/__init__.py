@@ -75,7 +75,7 @@ class SignalSubscriptionHandler(ABC):
 
         Example usage to handle the gaze signal in the rudimentary component:
 
-        ```
+        ```python
         queue, unsubscribe = await g3.rudimentary.subscribe_to_gaze()
         # handle gaze signals in queue
         await unsubscribe

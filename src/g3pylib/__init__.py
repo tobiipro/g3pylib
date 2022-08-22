@@ -130,7 +130,7 @@ class Glasses3(APIComponent):
         """Set up an RTSP connection in the form of a Streams object with the Stream properties indicated by the arguments.
 
         The Stream objects can be used to demux/decode their stream. For example, `stream_rtsp()` can be used as follows:
-        ```
+        ```python
         async with connect_to_glasses(g3_hostname) as g3:
             async with g3.stream_rtsp() as streams:
                 async with streams.scene_camera.decode() as decoded_stream:

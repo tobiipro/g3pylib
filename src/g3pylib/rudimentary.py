@@ -170,7 +170,7 @@ class Rudimentary(APIComponent):
         """Regularly sends keep alive messages to keep rudimentary streams alive.
 
         Example usage:
-        ```
+        ```python
         async with g3.rudimentary.keep_alive_in_context():
             for _ in range(100):
                 print(await g3.rudimentary.get_gaze_sample())

@@ -210,7 +210,7 @@ class Recordings(APIComponent, Sequence[Recording]):
         """Keep the `Recordings` state continuously updated in the context by listening for added and removed recordings.
 
         Example usage:
-        ```
+        ```python
         async with g3.recordings.keep_updated_in_context():
             await g3.recorder.start()
             await asyncio.sleep(3)
