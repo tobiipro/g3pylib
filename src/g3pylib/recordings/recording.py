@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, cast
 
@@ -9,12 +10,17 @@ from g3pylib.g3typing import URI
 from g3pylib.websocket import G3WebSocketClientProtocol
 
 
+class InvalidResponseError(Exception):
+    """Raised when an invalid response is received from the Glasses3 unit."""
+
+
 class Recording(APIComponent):
     def __init__(
         self, connection: G3WebSocketClientProtocol, api_base_uri: URI, uuid: str
     ):
         self._connection = connection
         self._uuid = uuid
+        self.logger: logging.Logger = logging.getLogger(__name__)
         super().__init__(URI(f"{api_base_uri}/{uuid}"))
 
     async def get_created(self) -> datetime:
@@ -173,10 +179,10 @@ class Recording(APIComponent):
                 try:
                     scenevideo_file_name = data["scenecamera"]["file"]
                 except KeyError:
-                    print(
-                        "Could not retrieve file name for recording from recording data."
+                    self.logger.warning(
+                        f"Could not retrieve file name for recording from recording data collected from {data_url}."
                     )
-                    raise
+                    raise InvalidResponseError
                 return f"{data_url}/{scenevideo_file_name}"
 
     async def get_gazedata_url(self) -> str:
@@ -189,8 +195,8 @@ class Recording(APIComponent):
                 try:
                     gaze_file_name = data["gaze"]["file"]
                 except KeyError:
-                    print(
-                        "Could not retrieve file name for gaze data from recording data."
+                    self.logger.warning(
+                        f"Could not retrieve file name for gaze data from recording data collected from {data_url}."
                     )
-                    raise
+                    raise InvalidResponseError
                 return f"{data_url}/{gaze_file_name}?use-content-encoding=true"
