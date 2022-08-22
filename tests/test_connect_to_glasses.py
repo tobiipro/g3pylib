@@ -57,9 +57,3 @@ async def test_connect_with_urls(g3_hostname: str):
     ) as g3:
         serial = await g3.system.get_recording_unit_serial()
         assert type(serial) is str
-
-
-async def test_connect_with_zeroconf():
-    async with connect_to_glasses.with_zeroconf() as g3:
-        serial = await g3.system.get_recording_unit_serial()
-        assert type(serial) is str
