@@ -11,10 +11,6 @@ from g3pylib.g3typing import URI
 from g3pylib.websocket import G3WebSocketClientProtocol
 
 
-class InvalidResponseError(Exception):
-    """Raised when an invalid response is received from the Glasses3 unit."""
-
-
 class Recording(APIComponent):
     def __init__(
         self, connection: G3WebSocketClientProtocol, api_base_uri: URI, uuid: str
