@@ -5,6 +5,8 @@ class ControlEventKind(Enum):
     START_RECORDING = auto()
     STOP_RECORDING = auto()
     DELETE_RECORDING = auto()
+    START_LIVE = auto()
+    STOP_LIVE = auto()
 
 
 class AppEventKind(Enum):
