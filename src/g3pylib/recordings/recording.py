@@ -6,12 +6,9 @@ from typing import List, Optional, cast
 import aiohttp
 
 from g3pylib._utils import APIComponent, EndpointKind
+from g3pylib.exceptions import InvalidResponseError
 from g3pylib.g3typing import URI
 from g3pylib.websocket import G3WebSocketClientProtocol
-
-
-class InvalidResponseError(Exception):
-    """Raised when an invalid response is received from the Glasses3 unit."""
 
 
 class Recording(APIComponent):
