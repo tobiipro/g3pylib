@@ -22,7 +22,8 @@ dependencies = [
     "websockets ~= 10.3",
     "zeroconf ~= 0.38.7",
     "aiortsp @ git+https://github.com/m4reko/aiortsp@master",
-    "av ~= 9.2.0"
+    "av ~= 9.2.0",
+    "aiohttp ~= 3.8.1"
 ]
 dynamic = ["version", "description"]
 

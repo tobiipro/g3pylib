@@ -1,7 +1,12 @@
+import json
+import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, cast
 
+import aiohttp
+
 from g3pylib._utils import APIComponent, EndpointKind
+from g3pylib.exceptions import InvalidResponseError
 from g3pylib.g3typing import URI
 from g3pylib.websocket import G3WebSocketClientProtocol
 
@@ -12,6 +17,7 @@ class Recording(APIComponent):
     ):
         self._connection = connection
         self._uuid = uuid
+        self.logger: logging.Logger = logging.getLogger(__name__)
         super().__init__(URI(f"{api_base_uri}/{uuid}"))
 
     async def get_created(self) -> datetime:
@@ -159,3 +165,35 @@ class Recording(APIComponent):
     def uuid(self) -> str:
         """The uuid of the recording."""
         return self._uuid
+
+    async def get_scenevideo_url(self) -> str:
+        """Returns a URL to the recording's video file."""
+        host_address = self._connection.remote_address[0]
+        data_url = f"http://{host_address}{await self.get_http_path()}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(data_url) as response:
+                data = json.loads(await response.text())
+        try:
+            scenevideo_file_name = data["scenecamera"]["file"]
+        except KeyError:
+            self.logger.warning(
+                f"Could not retrieve file name for recording from recording data collected from {data_url}."
+            )
+            raise InvalidResponseError
+        return f"{data_url}/{scenevideo_file_name}"
+
+    async def get_gazedata_url(self) -> str:
+        """Returns a URL to the recording's decompressed gaze data file."""
+        host_address = self._connection.remote_address[0]
+        data_url = f"http://{host_address}{await self.get_http_path()}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(data_url) as response:
+                data = json.loads(await response.text())
+        try:
+            gaze_file_name = data["gaze"]["file"]
+        except KeyError:
+            self.logger.warning(
+                f"Could not retrieve file name for gaze data from recording data collected from {data_url}."
+            )
+            raise InvalidResponseError
+        return f"{data_url}/{gaze_file_name}?use-content-encoding=true"

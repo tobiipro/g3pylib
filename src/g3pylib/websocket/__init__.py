@@ -14,6 +14,7 @@ from websockets.client import connect as websockets_connect
 from websockets.typing import Subprotocol
 
 from g3pylib import _utils
+from g3pylib.exceptions import InvalidResponseError
 from g3pylib.g3typing import (
     URI,
     JSONDict,
@@ -23,12 +24,7 @@ from g3pylib.g3typing import (
     SignalId,
     SubscriptionId,
 )
-from g3pylib.websocket.exceptions import (
-    GlassesError,
-    InvalidResponseError,
-    SubscribeError,
-    UnsubscribeError,
-)
+from g3pylib.websocket.exceptions import GlassesError, SubscribeError, UnsubscribeError
 
 
 def connect(ws_url: str) -> websockets.legacy.client.Connect:
