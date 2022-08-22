@@ -424,8 +424,8 @@ class G3App(App, ScreenManager):
                     self.read_frames_task = self.create_task(
                         update_frame(decoded_stream, streams), name="update_frame"
                     )
-                    self.frame_rate = 1 / 25
-                    Clock.schedule_once(draw_frame, self.frame_rate)
+                    self.scheduling_delay = 1 / 25
+                    Clock.schedule_once(draw_frame, self.scheduling_delay)
                     await self.read_frames_task
 
         async def update_frame(decoded_stream, streams):
@@ -434,11 +434,12 @@ class G3App(App, ScreenManager):
                 logging.debug(streams.scene_camera.stats)
 
         def draw_frame(dt):
+            """NOTE: The scheduling if frame redraw would ideally be made with Clock.schedule_interval at 25Hz, but due to performance issues a dynamic scheduling delay is implemented as a temporary fix."""
             display = self.get_screen("control").ids.sm.get_screen("live").ids.display
-            update_frame_rate(dt)
+            update_scheduling_delay(dt)
             if self.read_frames_task is not None:
                 if not self.read_frames_task.done():
-                    Clock.schedule_once(draw_frame, self.frame_rate)
+                    Clock.schedule_once(draw_frame, self.scheduling_delay)
             with display.canvas:
                 image = np.flip(self.latest_frame.to_ndarray(format="bgr24"), 0)
                 texture = Texture.create(
@@ -452,11 +453,11 @@ class G3App(App, ScreenManager):
                     size=(display.width, display.width * 9 / 16),
                 )
 
-        def update_frame_rate(last_dt):
-            if last_dt > self.frame_rate:
-                self.frame_rate = last_dt
-            elif last_dt < self.frame_rate:
-                self.frame_rate -= (self.frame_rate - last_dt) / 2
+        def update_scheduling_delay(last_delay):
+            if last_delay > self.scheduling_delay:
+                self.scheduling_delay = last_delay
+            elif last_delay < self.scheduling_delay:
+                self.scheduling_delay -= (self.scheduling_delay - last_delay) / 2
 
         def live_stream_task_running() -> bool:
             if self.live_stream_task is not None:
