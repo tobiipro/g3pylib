@@ -36,6 +36,9 @@ from g3pylib.g3typing import JSONObject
 DEFAULT_RTPS_LIVE_PATH = "/live/all"
 DEFAULT_RTSP_PORT = 8554
 TIMESTAMP_GRANULARITY = 90000
+FRAME_QUEUE_SIZE = 10
+DATA_QUEUE_SIZE = 100
+RTCP_QUEUE_SIZE = 100
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -180,7 +183,7 @@ class Stream(RTPTransportClient, ABC):
 
     transport: RTPTransport
     """A wrapper around a pair of UDP (or TCP) sockets."""
-    rtp_queue: asyncio.Queue[Tuple[Optional[float], RTP]]
+    rtp_queue: asyncio.Queue[Tuple[RTP, Optional[float]]]
     """The queue where all received raw RTP packets get queued for demuxing and decoding."""
     rtcp_queue: asyncio.Queue[RTCP]
     """The queue where all received raw RTCP packets get queued for demuxing and decoding."""
@@ -193,7 +196,7 @@ class Stream(RTPTransportClient, ABC):
         transport.subscribe(self)
         self.transport = transport
         self.rtp_queue = asyncio.Queue()
-        self.rtcp_queue = asyncio.Queue(100)
+        self.rtcp_queue = asyncio.Queue(RTCP_QUEUE_SIZE)
         self.type = type
         self._last_rtcp_timestamp = None
         self._last_ntp_time = None
@@ -206,7 +209,7 @@ class Stream(RTPTransportClient, ABC):
             ntp_timestamp = self._last_ntp_time + time_delta / TIMESTAMP_GRANULARITY
         else:
             ntp_timestamp = None
-        self.rtp_queue.put_nowait((ntp_timestamp, rtp))
+        self.rtp_queue.put_nowait((rtp, ntp_timestamp))
         # _logger.debug(f"{self.type}: {rtp.ts}")
         # _logger.debug(f"RTP size: {len(rtp.data)}")
 
@@ -279,14 +282,14 @@ class Stream(RTPTransportClient, ABC):
 
     @abstractmethod
     @asynccontextmanager
-    async def demux(self) -> AsyncIterator[asyncio.Queue[Tuple[Optional[float], Any]]]:
+    async def demux(self) -> AsyncIterator[asyncio.Queue[Tuple[Any, Optional[float]]]]:
         """Should return a queue with tuples containing the demuxed RTP stream along with timestamps."""
         raise NotImplementedError
         yield
 
     @abstractmethod
     @asynccontextmanager
-    async def decode(self) -> AsyncIterator[asyncio.Queue[Tuple[Optional[float], Any]]]:
+    async def decode(self) -> AsyncIterator[asyncio.Queue[Tuple[Any, Optional[float]]]]:
         """Should return a queue with tuples containing the demuxed and decoded RTP stream along with timestamps."""
         raise NotImplementedError
         yield
@@ -309,8 +312,10 @@ class DataStream(Stream):
     @asynccontextmanager
     async def demux(
         self,
-    ) -> AsyncIterator[asyncio.Queue[Tuple[Optional[float], bytes]]]:
-        data_queue: asyncio.Queue[Tuple[Optional[float], bytes]] = asyncio.Queue(2)
+    ) -> AsyncIterator[asyncio.Queue[Tuple[bytes, Optional[float]]]]:
+        data_queue: asyncio.Queue[Tuple[bytes, Optional[float]]] = asyncio.Queue(
+            DATA_QUEUE_SIZE
+        )
 
         async def demuxer():
             while True:
@@ -330,15 +335,17 @@ class DataStream(Stream):
     @asynccontextmanager
     async def decode(
         self,
-    ) -> AsyncIterator[asyncio.Queue[Tuple[Optional[float], JSONObject]]]:
-        json_queue: asyncio.Queue[Tuple[Optional[float], JSONObject]] = asyncio.Queue(2)
+    ) -> AsyncIterator[asyncio.Queue[Tuple[JSONObject, Optional[float]]]]:
+        json_queue: asyncio.Queue[Tuple[JSONObject, Optional[float]]] = asyncio.Queue(
+            DATA_QUEUE_SIZE
+        )
 
         async def decoder():
             async with self.demux() as data_queue:
                 while True:
-                    timestamp, data = await data_queue.get()
+                    data, timestamp = await data_queue.get()
                     json_message: JSONObject = json.loads(data)
-                    await json_queue.put((timestamp, json_message))
+                    await json_queue.put((json_message, timestamp))
 
         decoder_task = _utils.create_task(decoder(), name="decoder")
         try:
@@ -357,7 +364,7 @@ class VideoStream(Stream):
     Handles demuxing and decoding of video frames.
     """
 
-    _nal_unit_builder: Tuple[Optional[float], NALUnit]
+    _nal_unit_builder: Tuple[NALUnit, Optional[float]]
 
     def __init__(self, transport: RTPTransport, stream_type: StreamType) -> None:
         super().__init__(transport, stream_type)
@@ -385,25 +392,25 @@ class VideoStream(Stream):
     @asynccontextmanager
     async def demux(
         self,
-    ) -> AsyncIterator[asyncio.Queue[Tuple[Optional[float], NALUnit]]]:
+    ) -> AsyncIterator[asyncio.Queue[Tuple[NALUnit, Optional[float]]]]:
         """Returns a queue with tuples containing the demuxed RTP stream along with timestamps.
 
         Spawns a demuxer task which parses the NAL units received in the RTP payloads.
         It also aggregates fragmentation units of larger NAL units sent in multiple RTP packets."""
-        nal_unit_queue: asyncio.Queue[Tuple[Optional[float], NALUnit]] = asyncio.Queue(
-            2
+        nal_unit_queue: asyncio.Queue[Tuple[NALUnit, Optional[float]]] = asyncio.Queue(
+            FRAME_QUEUE_SIZE
         )
 
         async def demuxer():
             while True:
-                timestamp, rtp = await self.rtp_queue.get()
+                rtp, timestamp = await self.rtp_queue.get()
                 self._demux_in_count += 1
                 # t0 = time.perf_counter()
                 nal_unit = NALUnit.from_rtp_payload(cast(bytes, rtp.data))  # type: ignore
                 if nal_unit.type in [7, 8]:
                     # SPS or PPS is queued
                     self.sps_or_pps_received = True
-                    await nal_unit_queue.put((timestamp, nal_unit))
+                    await nal_unit_queue.put((nal_unit, timestamp))
                     self._demux_out_count += 1
                     continue
                 if not self.sps_or_pps_received:
@@ -411,21 +418,21 @@ class VideoStream(Stream):
                     continue
                 if nal_unit.type in [1, 5]:
                     # Self contained NAL unit is queued
-                    await nal_unit_queue.put((timestamp, nal_unit))
+                    await nal_unit_queue.put((nal_unit, timestamp))
                     self._demux_out_count += 1
                     continue
                 if isinstance(nal_unit, FUA):
                     # Fragmented NAL units need to be aggregated
                     if nal_unit.s:
                         self._nal_unit_builder = (
-                            timestamp,
                             NALUnit.from_fu_a(nal_unit),
+                            timestamp,
                         )
                         self._fragment_count = 1
                         # t1 = time.perf_counter()
                         # logger.debug(f"Demuxed FU-A start in {t1 - t0:.6f} seconds")
                         continue
-                    self._nal_unit_builder[1].data += nal_unit.payload
+                    self._nal_unit_builder[0].data += nal_unit.payload
                     self._fragment_count += 1
                     # t1 = time.perf_counter()
                     # logger.debug(f"Demuxed FU-A in {t1 - t0:.6f} seconds")
@@ -447,19 +454,21 @@ class VideoStream(Stream):
                 pass
 
     @asynccontextmanager
-    async def decode(self) -> AsyncIterator[asyncio.Queue[Tuple[Optional[float], Any]]]:
+    async def decode(self) -> AsyncIterator[asyncio.Queue[Tuple[Any, Optional[float]]]]:
         """Returns a queue with tuples containing the demuxed and decoded RTP stream along with timestamps.
 
         Spawns a decoder task which uses PyAV (ffmpeg) to parse and decode the demuxed NAL units.
 
         The returned queue contains PyAVs `av.VideoFrame` objects along with timestamps.
         """
-        frame_queue: asyncio.Queue[Tuple[Optional[float], Any]] = asyncio.Queue(2)
+        frame_queue: asyncio.Queue[Tuple[Any, Optional[float]]] = asyncio.Queue(
+            FRAME_QUEUE_SIZE
+        )
 
         async def decoder():
             async with self.demux() as nal_unit_queue:
                 while True:
-                    timestamp, nal_unit = await nal_unit_queue.get()
+                    nal_unit, timestamp = await nal_unit_queue.get()
                     # t0 = time.perf_counter()
                     packets = cast(
                         List[Any],

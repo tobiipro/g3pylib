@@ -135,7 +135,7 @@ class Glasses3(APIComponent):
             async with g3.stream_rtsp() as streams:
                 async with streams.scene_camera.decode() as decoded_stream:
                     for _ in range(500):
-                        frame = await decoded_stream.get()
+                        frame, _timestamp = await decoded_stream.get()
                         image = frame.to_ndarray(format="bgr24")
                         cv2.imshow("Video", image)
                         cv2.waitKey(1)

@@ -434,11 +434,12 @@ class G3App(App, ScreenManager):
 
     def start_live_stream(self, g3: Glasses3) -> None:
         async def live_stream():
-            async with g3.stream_rtsp() as streams:
-                async with streams.scene_camera.decode() as decoded_stream:
+            async with g3.stream_rtsp(scene_camera=True, gaze=True) as streams:
+                async with streams.scene_camera.decode() as decoded_stream, streams.gaze.decode() as gaze_stream:
                     live_screen = self.get_screen("control").ids.sm.get_screen("live")
                     Window.bind(on_resize=live_screen.clear)
                     self.latest_frame = await decoded_stream.get()
+                    self.latest_gaze = await gaze_stream.get()
                     self.read_frames_task = self.create_task(
                         update_frame(decoded_stream, streams), name="update_frame"
                     )
@@ -459,7 +460,7 @@ class G3App(App, ScreenManager):
                 if not self.read_frames_task.done():
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
             with display.canvas:
-                image = np.flip(self.latest_frame.to_ndarray(format="bgr24"), 0)
+                image = np.flip(self.latest_frame[0].to_ndarray(format="bgr24"), 0)
                 texture = Texture.create(
                     size=(image.shape[1], image.shape[0]), colorfmt="bgr"
                 )

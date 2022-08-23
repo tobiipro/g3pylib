@@ -15,17 +15,17 @@ async def stream_rtsp():
         async with g3.stream_rtsp(scene_camera=True, gaze=True) as streams:
             async with streams.gaze.decode() as gaze_stream, streams.scene_camera.decode() as scene_stream:
                 for i in range(200):
-                    frame_timestamp, frame = await scene_stream.get()
-                    gaze_timestamp, gaze = await gaze_stream.get()
+                    frame, frame_timestamp = await scene_stream.get()
+                    gaze, gaze_timestamp = await gaze_stream.get()
                     while gaze_timestamp is None or frame_timestamp is None:
                         if frame_timestamp is None:
-                            frame_timestamp, frame = await scene_stream.get()
+                            frame, frame_timestamp = await scene_stream.get()
                         if gaze_timestamp is None:
-                            gaze_timestamp, gaze = await gaze_stream.get()
+                            gaze, gaze_timestamp = await gaze_stream.get()
                     while gaze_timestamp < frame_timestamp:
-                        gaze_timestamp, gaze = await gaze_stream.get()
+                        gaze, gaze_timestamp = await gaze_stream.get()
                         while gaze_timestamp is None:
-                            gaze_timestamp, gaze = await gaze_stream.get()
+                            gaze, gaze_timestamp = await gaze_stream.get()
                     cv2.imshow("Video", frame.to_ndarray(format="bgr24"))  # type: ignore
                     cv2.waitKey(1)  # type: ignore
                     logging.info(f"Frame timestamp: {frame_timestamp}")
