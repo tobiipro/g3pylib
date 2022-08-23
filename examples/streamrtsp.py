@@ -12,10 +12,10 @@ logging.basicConfig(level=logging.INFO)
 
 async def stream_rtsp():
     async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"]) as g3:
-        async with g3.stream_rtsp() as streams:
+        async with g3.stream_rtsp(scene_camera=True) as streams:
             async with streams.scene_camera.decode() as decoded_stream:
                 for _ in range(300):
-                    frame = await decoded_stream.get()
+                    _timestamp, frame = await decoded_stream.get()
                     image = frame.to_ndarray(format="bgr24")
                     cv2.imshow("Video", image)  # type: ignore
                     cv2.waitKey(1)  # type: ignore
