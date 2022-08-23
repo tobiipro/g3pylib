@@ -1,5 +1,5 @@
 """
-*Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far. No time sync functionality is implemented.
+*Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
 """
 
 from __future__ import annotations
