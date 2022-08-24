@@ -31,6 +31,7 @@ from g3pylib.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 GAZE_CIRCLE_RADIUS = 10
 VIDEOPLAYER_PROGRESS_BAR_HEIGHT = dp(44)
 VIDEO_Y_TO_X_RATIO = 9 / 16
+LIVE_FRAME_RATE = 25
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -323,6 +324,8 @@ class G3App(App, ScreenManager):
         self.latest_gaze_with_timestamp = None
         self.live_gaze_circle = None
         self.replay_gaze_circle = None
+        self.last_texture = None
+        self.draw_frame_event = None
 
     def build(self):
         return self
@@ -487,8 +490,9 @@ class G3App(App, ScreenManager):
                             (0, video_origin_y),
                             (display.size[0], video_height),
                         )
-                    self.scheduling_delay = 1 / 25
-                    Clock.schedule_once(draw_frame, self.scheduling_delay)
+                    self.draw_frame_event = Clock.schedule_interval(
+                        draw_frame, 1 / LIVE_FRAME_RATE
+                    )
                     await self.read_frames_task
 
         async def update_frame(scene_stream, gaze_stream, streams):
@@ -512,37 +516,28 @@ class G3App(App, ScreenManager):
                 logging.debug(streams.scene_camera.stats)
 
         def draw_frame(dt):
-            """NOTE: The scheduling if frame redraw would ideally be made with Clock.schedule_interval at 25Hz, but due to performance issues a dynamic scheduling delay is implemented as a temporary fix."""
             display = self.get_screen("control").ids.sm.get_screen("live").ids.display
-            update_scheduling_delay(dt)
-            if self.read_frames_task is not None:
-                if not self.read_frames_task.done():
-                    Clock.schedule_once(draw_frame, self.scheduling_delay)
-            with display.canvas:
-                image = np.flip(
-                    self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0
-                )
-                texture = Texture.create(
-                    size=(image.shape[1], image.shape[0]), colorfmt="bgr"
-                )
-                image = np.reshape(image, -1)
-                texture.blit_buffer(image, colorfmt="bgr", bufferfmt="ubyte")
-                Color(1, 1, 1, 1)
-                Rectangle(
-                    texture=texture,
-                    pos=(0, (display.top - display.width * VIDEO_Y_TO_X_RATIO) / 2),
-                    size=(display.width, display.width * VIDEO_Y_TO_X_RATIO),
-                )
+            image = np.flip(
+                self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0
+            )
+            texture = Texture.create(
+                size=(image.shape[1], image.shape[0]), colorfmt="bgr"
+            )
+            image = np.reshape(image, -1)
+            texture.blit_buffer(image, colorfmt="bgr", bufferfmt="ubyte")
+            display.canvas.add(Color(1, 1, 1, 1))
+            if self.last_texture is not None:
+                display.canvas.remove(self.last_texture)
+            self.last_texture = Rectangle(
+                texture=texture,
+                pos=(0, (display.top - display.width * VIDEO_Y_TO_X_RATIO) / 2),
+                size=(display.width, display.width * VIDEO_Y_TO_X_RATIO),
+            )
+            display.canvas.add(self.last_texture)
             gaze_data = self.latest_gaze_with_timestamp[0]
             if len(gaze_data) != 0:
                 point = gaze_data["gaze2d"]
                 self.live_gaze_circle.redraw(point)
-
-        def update_scheduling_delay(last_delay):
-            if last_delay > self.scheduling_delay:
-                self.scheduling_delay = last_delay
-            elif last_delay < self.scheduling_delay:
-                self.scheduling_delay -= (self.scheduling_delay - last_delay) / 2
 
         def live_stream_task_running() -> bool:
             if self.live_stream_task is not None:
@@ -564,9 +559,13 @@ class G3App(App, ScreenManager):
         if self.live_stream_task is not None:
             if not self.live_stream_task.cancelled():
                 await self.cancel_task(self.live_stream_task)
+        if self.draw_frame_event is not None:
+            self.draw_frame_event.cancel()
+            self.draw_frame_event = None
         live_screen = self.get_screen("control").ids.sm.get_screen("live")
         Window.unbind(on_resize=live_screen.clear)
         live_screen.clear()
+        self.last_texture = None
 
     def get_selected_recording(self) -> Optional[str]:
         recordings = (
