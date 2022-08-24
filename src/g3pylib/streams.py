@@ -319,8 +319,8 @@ class DataStream(Stream):
 
         async def demuxer():
             while True:
-                timestamp, rtp = await self.rtp_queue.get()
-                await data_queue.put((timestamp, cast(bytes, rtp.data)))  # type: ignore
+                rtp, timestamp = await self.rtp_queue.get()
+                await data_queue.put((cast(bytes, rtp.data), timestamp))  # type: ignore
 
         demuxer_task = _utils.create_task(demuxer(), name="demuxer")
         try:
@@ -483,7 +483,7 @@ class VideoStream(Stream):
                     # t1 = time.perf_counter()
                     # logger.debug(f"Decoded NAL unit in {t1 - t0:.6f} seconds")
                     for frame in frames:
-                        await frame_queue.put((timestamp, frame))
+                        await frame_queue.put((frame, timestamp))
                         self._decode_count += 1
 
         decoder_task = _utils.create_task(decoder(), name="decoder")
