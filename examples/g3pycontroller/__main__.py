@@ -7,7 +7,7 @@ from eventkinds import AppEventKind, ControlEventKind
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.graphics import Rectangle
+from kivy.graphics import Color, Line, Rectangle
 from kivy.graphics.texture import Texture
 from kivy.lang.builder import Builder
 from kivy.properties import BooleanProperty
@@ -24,6 +24,9 @@ from g3pylib.g3typing import SignalBody
 from g3pylib.recordings import RecordingsEventKind
 from g3pylib.recordings.recording import Recording
 from g3pylib.zeroconf import EventKind, G3Service, G3ServiceDiscovery
+
+GAZE_CIRCLE_DIAMETER = 20
+VIDEO_Y_TO_X_RATIO = 9 / 16
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -278,6 +281,31 @@ class UserMessagePopup(Popup):
     pass
 
 
+class GazeCircle:
+    def __init__(self, canvas, origin, size) -> None:
+        self.canvas = canvas
+        self.origin = origin
+        self.size = size
+        self.circle_obj = Line(circle=(0, 0, 0))
+        self.canvas.add(self.circle_obj)
+
+    def redraw(self, coord):
+        self.canvas.remove(self.circle_obj)
+        self.canvas.add(Color(1, 0, 0, 1))
+        circle_x = self.origin[0] + coord[0] * self.size[0] - GAZE_CIRCLE_DIAMETER / 2
+        circle_y = (
+            self.origin[1] + (1 - coord[1]) * self.size[1] - GAZE_CIRCLE_DIAMETER / 2
+        )
+        self.circle_obj = Line(circle=(circle_x, circle_y, GAZE_CIRCLE_DIAMETER))
+        self.canvas.add(self.circle_obj)
+        self.canvas.remove(Color(1, 0, 0, 1))
+
+    def reset(self):
+        self.canvas.remove(self.circle_obj)
+        self.circle_obj = Line(circle=(0, 0, 0))
+        self.canvas.add(self.circle_obj)
+
+
 class G3App(App, ScreenManager):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -291,6 +319,7 @@ class G3App(App, ScreenManager):
         self.add_widget(ControlScreen(name="control"))
         self.latest_frame_with_timestamp = None
         self.latest_gaze_with_timestamp = None
+        self.live_gaze_circle = None
 
     def build(self):
         return self
@@ -443,8 +472,18 @@ class G3App(App, ScreenManager):
                     self.latest_frame_with_timestamp = await scene_stream.get()
                     self.latest_gaze_with_timestamp = await gaze_stream.get()
                     self.read_frames_task = self.create_task(
-                        update_frame(scene_stream, gaze_stream, streams), name="update_frame"
+                        update_frame(scene_stream, gaze_stream, streams),
+                        name="update_frame",
                     )
+                    if self.live_gaze_circle is None:
+                        display = live_screen.ids.display
+                        video_height = display.size[0] * VIDEO_Y_TO_X_RATIO
+                        video_origin_y = (display.size[1] - video_height) / 2
+                        self.live_gaze_circle = GazeCircle(
+                            live_screen.ids.display.canvas,
+                            (0, video_origin_y),
+                            (display.size[0], video_height),
+                        )
                     self.scheduling_delay = 1 / 25
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
                     await self.read_frames_task
@@ -452,8 +491,11 @@ class G3App(App, ScreenManager):
         async def update_frame(scene_stream, gaze_stream, streams):
             while True:
                 latest_frame_with_timestamp = await scene_stream.get()
-                latest_gaze_with_timestamp = await scene_stream.get()
-                while latest_gaze_with_timestamp[1] is None or latest_frame_with_timestamp[1] is None:
+                latest_gaze_with_timestamp = await gaze_stream.get()
+                while (
+                    latest_gaze_with_timestamp[1] is None
+                    or latest_frame_with_timestamp[1] is None
+                ):
                     if latest_frame_with_timestamp[1] is None:
                         latest_frame_with_timestamp = await scene_stream.get()
                     if latest_gaze_with_timestamp[1] is None:
@@ -474,17 +516,24 @@ class G3App(App, ScreenManager):
                 if not self.read_frames_task.done():
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
             with display.canvas:
-                image = np.flip(self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0)
+                image = np.flip(
+                    self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0
+                )
                 texture = Texture.create(
                     size=(image.shape[1], image.shape[0]), colorfmt="bgr"
                 )
                 image = np.reshape(image, -1)
                 texture.blit_buffer(image, colorfmt="bgr", bufferfmt="ubyte")
+                Color(1, 1, 1, 1)
                 Rectangle(
                     texture=texture,
-                    pos=(0, (display.top - display.width * 9 / 16) / 2),
-                    size=(display.width, display.width * 9 / 16),
+                    pos=(0, (display.top - display.width * VIDEO_Y_TO_X_RATIO) / 2),
+                    size=(display.width, display.width * VIDEO_Y_TO_X_RATIO),
                 )
+            gaze_data = self.latest_gaze_with_timestamp[0]
+            if len(gaze_data) != 0:
+                point = gaze_data["gaze2d"]
+                self.live_gaze_circle.redraw(point)
 
         def update_scheduling_delay(last_delay):
             if last_delay > self.scheduling_delay:
