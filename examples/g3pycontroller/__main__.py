@@ -289,6 +289,8 @@ class G3App(App, ScreenManager):
         self.read_frames_task: Optional[asyncio.Task] = None
         self.add_widget(DiscoveryScreen(name="discovery"))
         self.add_widget(ControlScreen(name="control"))
+        self.latest_frame_with_timestamp = None
+        self.latest_gaze_with_timestamp = None
 
     def build(self):
         return self
@@ -435,21 +437,33 @@ class G3App(App, ScreenManager):
     def start_live_stream(self, g3: Glasses3) -> None:
         async def live_stream():
             async with g3.stream_rtsp(scene_camera=True, gaze=True) as streams:
-                async with streams.scene_camera.decode() as decoded_stream, streams.gaze.decode() as gaze_stream:
+                async with streams.scene_camera.decode() as scene_stream, streams.gaze.decode() as gaze_stream:
                     live_screen = self.get_screen("control").ids.sm.get_screen("live")
                     Window.bind(on_resize=live_screen.clear)
-                    self.latest_frame = await decoded_stream.get()
-                    self.latest_gaze = await gaze_stream.get()
+                    self.latest_frame_with_timestamp = await scene_stream.get()
+                    self.latest_gaze_with_timestamp = await gaze_stream.get()
                     self.read_frames_task = self.create_task(
-                        update_frame(decoded_stream, streams), name="update_frame"
+                        update_frame(scene_stream, gaze_stream, streams), name="update_frame"
                     )
                     self.scheduling_delay = 1 / 25
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
                     await self.read_frames_task
 
-        async def update_frame(decoded_stream, streams):
+        async def update_frame(scene_stream, gaze_stream, streams):
             while True:
-                self.latest_frame = await decoded_stream.get()
+                latest_frame_with_timestamp = await scene_stream.get()
+                latest_gaze_with_timestamp = await scene_stream.get()
+                while latest_gaze_with_timestamp[1] is None or latest_frame_with_timestamp[1] is None:
+                    if latest_frame_with_timestamp[1] is None:
+                        latest_frame_with_timestamp = await scene_stream.get()
+                    if latest_gaze_with_timestamp[1] is None:
+                        latest_gaze_with_timestamp = await gaze_stream.get()
+                while latest_gaze_with_timestamp[1] < latest_frame_with_timestamp[1]:
+                    latest_gaze_with_timestamp = await gaze_stream.get()
+                    while latest_gaze_with_timestamp[1] is None:
+                        latest_gaze_with_timestamp = await gaze_stream.get()
+                self.latest_frame_with_timestamp = latest_frame_with_timestamp
+                self.latest_gaze_with_timestamp = latest_gaze_with_timestamp
                 logging.debug(streams.scene_camera.stats)
 
         def draw_frame(dt):
@@ -460,7 +474,7 @@ class G3App(App, ScreenManager):
                 if not self.read_frames_task.done():
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
             with display.canvas:
-                image = np.flip(self.latest_frame[0].to_ndarray(format="bgr24"), 0)
+                image = np.flip(self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0)
                 texture = Texture.create(
                     size=(image.shape[1], image.shape[0]), colorfmt="bgr"
                 )
