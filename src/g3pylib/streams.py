@@ -344,7 +344,13 @@ class DataStream(Stream):
             async with self.demux() as data_queue:
                 while True:
                     data, timestamp = await data_queue.get()
-                    json_message: JSONObject = json.loads(data)
+                    try:
+                        json_message: JSONObject = json.loads(data)
+                    except json.JSONDecodeError:
+                        _logger.debug(
+                            f"Received data that couldn't be decoded{' since it was empty.' if len(data) == 0 else '.'}"
+                        )
+                        continue
                     await json_queue.put((json_message, timestamp))
 
         decoder_task = _utils.create_task(decoder(), name="decoder")
