@@ -78,7 +78,7 @@ Builder.load_string("""
                 halign: "left"
             Label:
                 id: task_indicator
-                text: "No tasks running."
+                text: ""
         BoxLayout:
             size_hint: 1, None
             height: dp(50)
@@ -243,9 +243,9 @@ class ControlScreen(Screen):
 
     def set_task_running_status(self, is_running: bool) -> None:
         if is_running:
-            self.ids.task_indicator.text = "Task running..."
+            self.ids.task_indicator.text = "Handling action..."
         else:
-            self.ids.task_indicator.text = "No task is running."
+            self.ids.task_indicator.text = ""
 
     def set_hostname(self, hostname: str) -> None:
         self.ids.hostname.text = hostname
