@@ -111,6 +111,13 @@ class G3Service:
         ip_or_hostname = self._ip_or_hostname(using_ip, ip_version)
         return f"rtsp://{ip_or_hostname}:{self.rtsp_port}{self.rtsp_live_path}"
 
+    def http_url(
+        self, using_ip: bool = False, ip_version: IPVersion = IPVersion.V4Only
+    ) -> Optional[str]:
+        """The url used to make HTTP requests to the device."""
+        ip_or_hostname = self._ip_or_hostname(using_ip, ip_version)
+        return f"http://{ip_or_hostname}:{self.service_info.port}"
+
     @property
     def rtsp_port(self) -> Optional[int]:
         """The port used for the RTSP service."""

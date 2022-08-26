@@ -39,7 +39,6 @@ class TestStreamNotRunning:
 
     @staticmethod
     async def test_context_manager(g3: Glasses3):
-        print("testing")
         async with g3.rudimentary.keep_alive_in_context():
             await asyncio.sleep(0.1)
             assert (
@@ -95,11 +94,9 @@ class TestStreamRunning:
         scene_quality = await g3.rudimentary.get_scene_quality()
         assert type(scene_quality) is int
         assert scene_quality >= 15 and scene_quality <= 100
-        print(scene_quality)
         new_scene_quality = (
             scene_quality - 14
         ) % 86 + 15  # a new integer in the range [15,100]
-        print(new_scene_quality)
         await g3.rudimentary.set_scene_quality(new_scene_quality)
         assert await g3.rudimentary.get_scene_quality() == new_scene_quality
 

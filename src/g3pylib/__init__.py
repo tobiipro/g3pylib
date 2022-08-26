@@ -28,6 +28,7 @@ from typing import Any, AsyncIterator, Coroutine, Generator, Optional, Tuple, Ty
 import g3pylib.websocket
 from g3pylib._utils import APIComponent
 from g3pylib.calibrate import Calibrate
+from g3pylib.exceptions import FeatureNotAvailableError
 from g3pylib.g3typing import URI, LoggerLike
 from g3pylib.recorder import Recorder
 from g3pylib.recordings import Recordings
@@ -40,11 +41,9 @@ from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscove
 
 __version__ = "0.2.0-alpha"
 
+DEFAULT_HTTP_PORT = "80"
+
 _logger = logging.getLogger(__name__)
-
-
-class StreamingNotSupportedError(Exception):
-    """Raised when streaming is attempted but unsupported."""
 
 
 class Glasses3(APIComponent):
@@ -61,12 +60,14 @@ class Glasses3(APIComponent):
         self,
         connection: G3WebSocketClientProtocol,
         rtsp_url: Optional[str],
+        http_url: Optional[str],
         logger: Optional[LoggerLike] = None,
     ) -> None:
         self.logger: LoggerLike = (
             logging.getLogger(__name__) if logger is None else logger
         )
         self._rtsp_url = rtsp_url
+        self._http_url = http_url
         self._connection: G3WebSocketClientProtocol = connection
         self._recorder: Optional[Recorder] = None
         self._recordings: Optional[Recordings] = None
@@ -90,7 +91,9 @@ class Glasses3(APIComponent):
     @property
     def recordings(self) -> Recordings:
         if self._recordings is None:
-            self._recordings = Recordings(self._connection, URI("/recordings"))
+            self._recordings = Recordings(
+                self._connection, URI("/recordings"), self._http_url
+            )
         return self._recordings
 
     @property
@@ -144,7 +147,7 @@ class Glasses3(APIComponent):
         *Alpha version note:* Only the scene_camera, eye_camera and gaze attributes are implemented so far.
         """
         if self.rtsp_url is None:
-            raise StreamingNotSupportedError(
+            raise FeatureNotAvailableError(
                 "This Glasses3 object was initialized without a proper RTSP url."
             )
         async with Streams.connect(
@@ -190,7 +193,8 @@ class connect_to_glasses:
     """
 
     def __init__(
-        self, url_generator: Coroutine[Any, Any, Tuple[str, Optional[str]]]
+        self,
+        url_generator: Coroutine[Any, Any, Tuple[str, Optional[str], Optional[str]]],
     ) -> None:
         """You should probably not use this constructor unless you need to generate the URLs to your glasses in a very specific way.
         The regular use cases are covered in the alternative constructors below: `with_url`, `with_zeroconf`, `with_hostname` and `with_service`.
@@ -202,7 +206,7 @@ class connect_to_glasses:
     @staticmethod
     async def _urls_from_zeroconf(
         using_ip: bool, timeout: float
-    ) -> Tuple[str, Optional[str]]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         async with G3ServiceDiscovery.listen() as service_discovery:
             service = await service_discovery.wait_for_single_service(
                 service_discovery.events,
@@ -213,17 +217,22 @@ class connect_to_glasses:
     @staticmethod
     async def _urls_from_service(
         service: G3Service, using_ip: bool
-    ) -> Tuple[str, Optional[str]]:
-        return (service.ws_url(using_ip), service.rtsp_url(using_ip))
+    ) -> Tuple[str, Optional[str], Optional[str]]:
+        return (
+            service.ws_url(using_ip),
+            service.rtsp_url(using_ip),
+            service.http_url(using_ip),
+        )
 
     @staticmethod
     async def _urls_from_hostname(
         hostname: str, using_zeroconf: bool, using_ip: bool
-    ) -> Tuple[str, Optional[str]]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         if not using_zeroconf:
             return (
                 f"ws://{hostname}{DEFAULT_WEBSOCKET_PATH}",
                 f"rtsp://{hostname}:{DEFAULT_RTSP_PORT}{DEFAULT_RTPS_LIVE_PATH}",
+                f"http://{hostname}:{DEFAULT_HTTP_PORT}",
             )
         else:
             service = await G3ServiceDiscovery.request_service(hostname)
@@ -270,13 +279,15 @@ class connect_to_glasses:
         return cls(cls._urls_from_service(service, using_ip))
 
     @classmethod
-    def with_url(cls, ws_url: str, rtsp_url: Optional[str] = None):
+    def with_url(
+        cls, ws_url: str, rtsp_url: Optional[str] = None, http_url: Optional[str] = None
+    ):
         """Connects to the pair of glasses at the specified URL. `ws_url` should
         be a websocket URL (starting with `ws://`) and `rtsp_url` should be an RTSP
         url (starting with `rtsp://` or `rtspt://`)."""
 
         async def urls():
-            return (ws_url, rtsp_url)
+            return (ws_url, rtsp_url, http_url)
 
         return cls(urls())
 
@@ -284,14 +295,16 @@ class connect_to_glasses:
         return self.__await_impl__().__await__()
 
     async def __await_impl__(self) -> Glasses3:
-        ws_url, rtsp_url = await self.url_generator
-        _logger.info(f"Attempting connection to websocket {ws_url} and RTSP {rtsp_url}")
+        ws_url, rtsp_url, http_url = await self.url_generator
+        _logger.info(
+            f"Attempting connection to websocket {ws_url}, RTSP {rtsp_url} and HTTP {http_url}"
+        )
         connection = cast(
             G3WebSocketClientProtocol, await g3pylib.websocket.connect(ws_url)
         )
         connection.start_receiver_task()
         self.connection = connection
-        return Glasses3(connection, rtsp_url)
+        return Glasses3(connection, rtsp_url, http_url)
 
     async def __aenter__(self) -> Glasses3:
         return await self
