@@ -6,16 +6,21 @@ from typing import List, Optional, cast
 import aiohttp
 
 from g3pylib._utils import APIComponent, EndpointKind
-from g3pylib.exceptions import InvalidResponseError
+from g3pylib.exceptions import FeatureNotAvailableError, InvalidResponseError
 from g3pylib.g3typing import URI
 from g3pylib.websocket import G3WebSocketClientProtocol
 
 
 class Recording(APIComponent):
     def __init__(
-        self, connection: G3WebSocketClientProtocol, api_base_uri: URI, uuid: str
+        self,
+        connection: G3WebSocketClientProtocol,
+        api_base_uri: URI,
+        uuid: str,
+        http_url: Optional[str],
     ):
         self._connection = connection
+        self._http_url = http_url
         self._uuid = uuid
         self.logger: logging.Logger = logging.getLogger(__name__)
         super().__init__(URI(f"{api_base_uri}/{uuid}"))
@@ -168,8 +173,11 @@ class Recording(APIComponent):
 
     async def get_scenevideo_url(self) -> str:
         """Returns a URL to the recording's video file."""
-        host_address = self._connection.remote_address[0]
-        data_url = f"http://{host_address}{await self.get_http_path()}"
+        if self._http_url is None:
+            raise FeatureNotAvailableError(
+                "This Glasses3 object was initialized without a proper HTTP url."
+            )
+        data_url = f"{self._http_url}{await self.get_http_path()}"
         async with aiohttp.ClientSession() as session:
             async with session.get(data_url) as response:
                 data = json.loads(await response.text())
@@ -184,8 +192,11 @@ class Recording(APIComponent):
 
     async def get_gazedata_url(self) -> str:
         """Returns a URL to the recording's decompressed gaze data file."""
-        host_address = self._connection.remote_address[0]
-        data_url = f"http://{host_address}{await self.get_http_path()}"
+        if self._http_url is None:
+            raise FeatureNotAvailableError(
+                "This Glasses3 object was initialized without a proper HTTP url."
+            )
+        data_url = f"{self._http_url}{await self.get_http_path()}"
         async with aiohttp.ClientSession() as session:
             async with session.get(data_url) as response:
                 data = json.loads(await response.text())

@@ -3,7 +3,7 @@ import logging
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from enum import Enum, auto
-from typing import Awaitable, Dict, List, Tuple, Union, cast, overload
+from typing import Awaitable, Dict, List, Optional, Tuple, Union, cast, overload
 
 from g3pylib import _utils
 from g3pylib._utils import APIComponent, EndpointKind
@@ -22,8 +22,14 @@ class RecordingsEventKind(Enum):
 
 
 class Recordings(APIComponent, Sequence[Recording]):
-    def __init__(self, connection: G3WebSocketClientProtocol, api_uri: URI) -> None:
+    def __init__(
+        self,
+        connection: G3WebSocketClientProtocol,
+        api_uri: URI,
+        http_url: Optional[str],
+    ) -> None:
         self._connection = connection
+        self._http_url = http_url
         self._children = {}
         self._handle_child_added_task = None
         self._handle_child_removed_task = None
@@ -90,7 +96,10 @@ class Recordings(APIComponent, Sequence[Recording]):
         )["children"]
         return dict(
             map(
-                lambda uuid: (uuid, Recording(self._connection, self._api_uri, uuid)),
+                lambda uuid: (
+                    uuid,
+                    Recording(self._connection, self._api_uri, uuid, self._http_url),
+                ),
                 reversed(children),
             )
         )
@@ -103,7 +112,7 @@ class Recordings(APIComponent, Sequence[Recording]):
                 body = await added_children_queue.get()
                 child_uuid = cast(List[str], body)[0]
                 self._children[child_uuid] = Recording(
-                    self._connection, self._api_uri, child_uuid
+                    self._connection, self._api_uri, child_uuid, self._http_url
                 )
                 await self._events.put((RecordingsEventKind.ADDED, body))
 
