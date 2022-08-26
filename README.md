@@ -41,12 +41,12 @@ You can also specify this variable directly in your environment.
 
 ## Examples
 
-The [example folder](examples) contains a few smaller examples showcasing different use cases of the library as well as a larger controller application with a simple GUI.
+The [example folder](https://github.com/tobiipro/g3pylib/tree/v0.3.0-alpha/examples) contains a few smaller examples showcasing different use cases of the library as well as a larger controller application with a simple GUI.
 
 Run the example app with `python examples/g3pycontroller`.
 
 ## Contributing
 
-More information on how to contribute to this project can be found in [CONTRIBUTING.md](CONTRIBUTING.md).
+More information on how to contribute to this project can be found in [CONTRIBUTING.md](https://github.com/tobiipro/g3pylib/blob/v0.3.0-alpha/CONTRIBUTING.md).
 
 It contains developer guidelines as well as information on how to run tests and enable logging.
