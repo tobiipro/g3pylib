@@ -443,7 +443,8 @@ class G3App(App, ScreenManager):
                     self.latest_frame_with_timestamp = await scene_stream.get()
                     self.latest_gaze_with_timestamp = await gaze_stream.get()
                     self.read_frames_task = self.create_task(
-                        update_frame(scene_stream, gaze_stream, streams), name="update_frame"
+                        update_frame(scene_stream, gaze_stream, streams),
+                        name="update_frame",
                     )
                     self.scheduling_delay = 1 / 25
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
@@ -453,7 +454,10 @@ class G3App(App, ScreenManager):
             while True:
                 latest_frame_with_timestamp = await scene_stream.get()
                 latest_gaze_with_timestamp = await scene_stream.get()
-                while latest_gaze_with_timestamp[1] is None or latest_frame_with_timestamp[1] is None:
+                while (
+                    latest_gaze_with_timestamp[1] is None
+                    or latest_frame_with_timestamp[1] is None
+                ):
                     if latest_frame_with_timestamp[1] is None:
                         latest_frame_with_timestamp = await scene_stream.get()
                     if latest_gaze_with_timestamp[1] is None:
@@ -474,7 +478,9 @@ class G3App(App, ScreenManager):
                 if not self.read_frames_task.done():
                     Clock.schedule_once(draw_frame, self.scheduling_delay)
             with display.canvas:
-                image = np.flip(self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0)
+                image = np.flip(
+                    self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0
+                )
                 texture = Texture.create(
                     size=(image.shape[1], image.shape[0]), colorfmt="bgr"
                 )
