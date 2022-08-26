@@ -1,10 +1,10 @@
-# This workflow will build a wheel and sdist and upload as an artifact
+# This workflow will build a wheel and sdist and upload them as an artifact
 
 name: Build wheel and sdist
 
 on:
   push:
-    branches: ["feature/build-action"]
+    branches: ["main"]
 
 jobs:
   build:
@@ -31,5 +31,5 @@ jobs:
     - name: Upload build artifact
       uses: actions/upload-artifact@v3
       with:
-        name: dist
+        name: distribution
         path: dist
