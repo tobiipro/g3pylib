@@ -297,9 +297,12 @@ class GazeCircle:
     def redraw(self, coord):
         self.canvas.remove(self.circle_obj)
         self.canvas.add(Color(1, 0, 0, 1))
-        circle_x = self.origin[0] + coord[0] * self.size[0]
-        circle_y = self.origin[1] + (1 - coord[1]) * self.size[1]
-        self.circle_obj = Line(circle=(circle_x, circle_y, GAZE_CIRCLE_RADIUS))
+        if coord is None:
+            self.circle_obj = Line(circle=(0, 0, 0))
+        else:
+            circle_x = self.origin[0] + coord[0] * self.size[0]
+            circle_y = self.origin[1] + (1 - coord[1]) * self.size[1]
+            self.circle_obj = Line(circle=(circle_x, circle_y, GAZE_CIRCLE_RADIUS))
         self.canvas.add(self.circle_obj)
         self.canvas.remove(Color(1, 0, 0, 1))
 
@@ -639,8 +642,7 @@ class G3App(App, ScreenManager):
                 point = self.gaze_data_list[current_gaze_index]["data"]["gaze2d"]
             except KeyError:
                 point = None
-            if point is not None:
-                self.replay_gaze_circle.redraw(point)
+            self.replay_gaze_circle.redraw(point)
 
         videoplayer = (
             self.get_screen("control").ids.sm.get_screen("recording").ids.videoplayer
