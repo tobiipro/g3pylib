@@ -1,6 +1,6 @@
 # This workflow will build a wheel and sdist and upload as an artifact
 
-name: Python package
+name: Build wheel and sdist
 
 on:
   push:
