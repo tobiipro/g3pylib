@@ -297,9 +297,7 @@ class GazeCircle:
         self.canvas.remove(self.circle_obj)
         self.canvas.add(Color(1, 0, 0, 1))
         circle_x = self.origin[0] + coord[0] * self.size[0]
-        circle_y = (
-            self.origin[1] + (1 - coord[1]) * self.size[1]
-        )
+        circle_y = self.origin[1] + (1 - coord[1]) * self.size[1]
         self.circle_obj = Line(circle=(circle_x, circle_y, GAZE_CIRCLE_RADIUS))
         self.canvas.add(self.circle_obj)
         self.canvas.remove(Color(1, 0, 0, 1))
@@ -603,13 +601,17 @@ class G3App(App, ScreenManager):
             self.gaze_data_list = []
             for gaze_json in gaze_json_list:
                 self.gaze_data_list.append(json.loads(gaze_json))
-            
+
             if self.replay_gaze_circle is None:
                 video_height = videoplayer.size[0] * VIDEO_Y_TO_X_RATIO
                 video_origin_y = (
                     videoplayer.size[1] - video_height + VIDEOPLAYER_PROGRESS_BAR_HEIGHT
                 ) / 2
-                self.replay_gaze_circle = GazeCircle(videoplayer.canvas, (0, video_origin_y), (videoplayer.size[0], video_height))
+                self.replay_gaze_circle = GazeCircle(
+                    videoplayer.canvas,
+                    (0, video_origin_y),
+                    (videoplayer.size[0], video_height),
+                )
                 self.bind_replay_gaze_updates()
 
     def bind_replay_gaze_updates(self):
