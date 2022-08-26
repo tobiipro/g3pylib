@@ -1,7 +1,9 @@
 import asyncio
+import json
 import logging
 from typing import List, Optional, Set, Tuple, cast
 
+import aiohttp
 import numpy as np
 from eventkinds import AppEventKind, ControlEventKind
 from kivy.app import App
@@ -10,6 +12,7 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Line, Rectangle
 from kivy.graphics.texture import Texture
 from kivy.lang.builder import Builder
+from kivy.metrics import dp
 from kivy.properties import BooleanProperty
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
@@ -25,7 +28,8 @@ from g3pylib.recordings import RecordingsEventKind
 from g3pylib.recordings.recording import Recording
 from g3pylib.zeroconf import EventKind, G3Service, G3ServiceDiscovery
 
-GAZE_CIRCLE_DIAMETER = 20
+GAZE_CIRCLE_RADIUS = 10
+VIDEOPLAYER_PROGRESS_BAR_HEIGHT = dp(44)
 VIDEO_Y_TO_X_RATIO = 9 / 16
 
 logging.basicConfig(level=logging.DEBUG)
@@ -292,11 +296,9 @@ class GazeCircle:
     def redraw(self, coord):
         self.canvas.remove(self.circle_obj)
         self.canvas.add(Color(1, 0, 0, 1))
-        circle_x = self.origin[0] + coord[0] * self.size[0] - GAZE_CIRCLE_DIAMETER / 2
-        circle_y = (
-            self.origin[1] + (1 - coord[1]) * self.size[1] - GAZE_CIRCLE_DIAMETER / 2
-        )
-        self.circle_obj = Line(circle=(circle_x, circle_y, GAZE_CIRCLE_DIAMETER))
+        circle_x = self.origin[0] + coord[0] * self.size[0]
+        circle_y = self.origin[1] + (1 - coord[1]) * self.size[1]
+        self.circle_obj = Line(circle=(circle_x, circle_y, GAZE_CIRCLE_RADIUS))
         self.canvas.add(self.circle_obj)
         self.canvas.remove(Color(1, 0, 0, 1))
 
@@ -320,6 +322,7 @@ class G3App(App, ScreenManager):
         self.latest_frame_with_timestamp = None
         self.latest_gaze_with_timestamp = None
         self.live_gaze_circle = None
+        self.replay_gaze_circle = None
 
     def build(self):
         return self
@@ -581,7 +584,8 @@ class G3App(App, ScreenManager):
         uuid = self.get_selected_recording()
         if uuid is not None:
             self.get_screen("control").switch_to_screen("recording")
-            file_url = await g3.recordings.get_recording(uuid).get_scenevideo_url()
+            recording = g3.recordings.get_recording(uuid)
+            file_url = await recording.get_scenevideo_url()
             videoplayer = (
                 self.get_screen("control")
                 .ids.sm.get_screen("recording")
@@ -589,6 +593,69 @@ class G3App(App, ScreenManager):
             )
             videoplayer.source = file_url
             videoplayer.state = "play"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(await recording.get_gazedata_url()) as response:
+                    all_gaze_data = await response.text()
+            gaze_json_list = all_gaze_data.split("\n")[:-1]
+            self.gaze_data_list = []
+            for gaze_json in gaze_json_list:
+                self.gaze_data_list.append(json.loads(gaze_json))
+
+            if self.replay_gaze_circle is None:
+                video_height = videoplayer.size[0] * VIDEO_Y_TO_X_RATIO
+                video_origin_y = (
+                    videoplayer.size[1] - video_height + VIDEOPLAYER_PROGRESS_BAR_HEIGHT
+                ) / 2
+                self.replay_gaze_circle = GazeCircle(
+                    videoplayer.canvas,
+                    (0, video_origin_y),
+                    (videoplayer.size[0], video_height),
+                )
+                self.bind_replay_gaze_updates()
+
+    def bind_replay_gaze_updates(self):
+        def reset_gaze_circle(instance, state):
+            if state == "start" or state == "stop":
+                if self.replay_gaze_circle is not None:
+                    self.replay_gaze_circle.reset()
+
+        def update_gaze_circle(instance, timestamp):
+            current_gaze_index = self.binary_search_gaze_point(
+                timestamp, self.gaze_data_list
+            )
+            try:
+                point = self.gaze_data_list[current_gaze_index]["data"]["gaze2d"]
+            except KeyError:
+                point = None
+            if point is not None:
+                self.replay_gaze_circle.redraw(point)
+
+        videoplayer = (
+            self.get_screen("control").ids.sm.get_screen("recording").ids.videoplayer
+        )
+        videoplayer.bind(position=update_gaze_circle)
+        videoplayer.bind(state=reset_gaze_circle)
+
+    @staticmethod
+    def binary_search_gaze_point(value, gaze_list):
+        left_index = 0
+        right_index = len(gaze_list) - 1
+        best_index = left_index
+        while left_index <= right_index:
+            mid_index = left_index + (right_index - left_index) // 2
+            if gaze_list[mid_index]["timestamp"] < value:
+                left_index = mid_index + 1
+            elif gaze_list[mid_index]["timestamp"] > value:
+                right_index = mid_index - 1
+            else:
+                best_index = mid_index
+                break
+            if abs(gaze_list[mid_index]["timestamp"] - value) < abs(
+                gaze_list[best_index]["timestamp"] - value
+            ):
+                best_index = mid_index
+        return best_index
 
     async def delete_selected_recording(self, g3: Glasses3) -> None:
         uuid = self.get_selected_recording()
