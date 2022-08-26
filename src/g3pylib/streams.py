@@ -33,8 +33,6 @@ from dpkt.rtp import RTP  # type: ignore
 from g3pylib import _utils
 from g3pylib.g3typing import JSONObject
 
-DEFAULT_RTPS_LIVE_PATH = "/live/all"
-DEFAULT_RTSP_PORT = 8554
 TIMESTAMP_GRANULARITY = 90000
 FRAME_QUEUE_SIZE = 10
 DATA_QUEUE_SIZE = 100

@@ -34,14 +34,16 @@ from g3pylib.recorder import Recorder
 from g3pylib.recordings import Recordings
 from g3pylib.rudimentary import Rudimentary
 from g3pylib.settings import Settings
-from g3pylib.streams import DEFAULT_RTPS_LIVE_PATH, DEFAULT_RTSP_PORT, Streams
+from g3pylib.streams import Streams
 from g3pylib.system import System
 from g3pylib.websocket import G3WebSocketClientProtocol
 from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
 
 __version__ = "0.2.0-alpha"
 
-DEFAULT_HTTP_PORT = "80"
+DEFAULT_RTSP_LIVE_PATH = "/live/all"
+DEFAULT_RTSP_PORT = 8554
+DEFAULT_HTTP_PORT = 80
 
 _logger = logging.getLogger(__name__)
 
@@ -231,7 +233,7 @@ class connect_to_glasses:
         if not using_zeroconf:
             return (
                 f"ws://{hostname}{DEFAULT_WEBSOCKET_PATH}",
-                f"rtsp://{hostname}:{DEFAULT_RTSP_PORT}{DEFAULT_RTPS_LIVE_PATH}",
+                f"rtsp://{hostname}:{DEFAULT_RTSP_PORT}{DEFAULT_RTSP_LIVE_PATH}",
                 f"http://{hostname}:{DEFAULT_HTTP_PORT}",
             )
         else:
