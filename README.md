@@ -4,6 +4,10 @@
 
 A Python client for Glasses3. It handles all the low level details of communication with the Glasses3 websocket API and exposes a Python API which includes all the endpoints in the websocket API of the Glasses3 as well as some extra convenience methods. It also implements streaming with RTSP and service discovery with Zeroconf.
 
+**Note**
+
+*This library should be platform independent in theory but the development has been done mainly in Windows environments and it's only briefly tested on other platforms.*
+
 ## Installation
 
 For the moment we only support *Python 3.10*.
