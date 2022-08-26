@@ -516,6 +516,15 @@ class G3App(App, ScreenManager):
                 logging.debug(streams.scene_camera.stats)
 
         def draw_frame(dt):
+            if (
+                self.latest_frame_with_timestamp is None
+                or self.latest_gaze_with_timestamp is None
+                or self.live_gaze_circle is None
+            ):
+                logging.warning(
+                    "Frame not drawn due to missing frame, gaze data or gaze circle."
+                )
+                return
             display = self.get_screen("control").ids.sm.get_screen("live").ids.display
             image = np.flip(
                 self.latest_frame_with_timestamp[0].to_ndarray(format="bgr24"), 0
@@ -620,6 +629,9 @@ class G3App(App, ScreenManager):
                     self.replay_gaze_circle.reset()
 
         def update_gaze_circle(instance, timestamp):
+            if self.replay_gaze_circle is None:
+                logging.warning("Gaze not drawn due to missing gaze circle.")
+                return
             current_gaze_index = self.binary_search_gaze_point(
                 timestamp, self.gaze_data_list
             )
