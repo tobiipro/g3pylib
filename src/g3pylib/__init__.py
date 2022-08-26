@@ -39,7 +39,7 @@ from g3pylib.system import System
 from g3pylib.websocket import G3WebSocketClientProtocol
 from g3pylib.zeroconf import DEFAULT_WEBSOCKET_PATH, G3Service, G3ServiceDiscovery
 
-__version__ = "0.3.0-alpha"
+__version__ = "0.3.1-alpha"
 
 DEFAULT_RTSP_LIVE_PATH = "/live/all"
 DEFAULT_RTSP_PORT = 8554
