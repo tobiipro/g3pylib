@@ -26,17 +26,24 @@ async def stream_rtsp():
                         gaze, gaze_timestamp = await gaze_stream.get()
                         while gaze_timestamp is None:
                             gaze, gaze_timestamp = await gaze_stream.get()
-                    cv2.imshow("Video", frame.to_ndarray(format="bgr24"))  # type: ignore
-                    cv2.waitKey(1)  # type: ignore
+
                     logging.info(f"Frame timestamp: {frame_timestamp}")
                     logging.info(f"Gaze timestamp: {gaze_timestamp}")
+                    img = frame.to_ndarray(format="bgr24")
+
                     if "gaze2d" in gaze:
                         gaze2d = gaze["gaze2d"]
                         logging.info(f"Gaze2d: {gaze2d[0]:9.4f},{gaze2d[1]:9.4f}")
+                        h, w = img.shape[:2]
+                        fix = (int(gaze2d[0] * w), int(gaze2d[1] * h))
+                        img = cv2.circle(img.copy(), fix, 10, (0, 0, 255), 3)
                     elif i % 50 == 0:
                         logging.info(
                             "No gaze data received. Have you tried putting on the glasses?"
                         )
+
+                    cv2.imshow("Video", img)  # type: ignore
+                    cv2.waitKey(1)  # type: ignore
 
 
 def main():
