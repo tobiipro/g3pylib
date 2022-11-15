@@ -65,3 +65,6 @@ skip_gitignore = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+# Timeout
+faulthandler_timeout=30
