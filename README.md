@@ -24,6 +24,10 @@ To run examples or tests you need some extra dependencies which are installed by
 
 `pip install '.[test, examples, example-app]'`
 
+on windows: 
+`pip install ".[test, examples, example-app]"`
+
+
 ## Documentation
 
 The library documentation can be found [here](https://tobiipro.github.io/g3pylib/) and there is also a developer guide for the glasses API in PDF format which can be downloaded [here](https://www.tobiipro.com/product-listing/tobii-pro-glasses3-api/#ResourcesSpecifications).
