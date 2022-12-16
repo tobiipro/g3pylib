@@ -49,6 +49,8 @@ The [example folder](https://github.com/tobiipro/g3pylib/tree/v0.3.0-alpha/examp
 
 Run the example app with `python examples/g3pycontroller`.
 
+Note, the examples use OpenCV, and there is a known issue with OpenCV and PyAv. If you experience freezes when displaying video frames in the samples, please check out the workarounds in the [OpenCV repo](https://github.com/opencv/opencv/issues/21952). Thanks [@edavalosanaya](https://github.com/edavalosanaya) for mentioning this in https://github.com/tobiipro/g3pylib/issues/83.
+
 ## Contributing
 
 More information on how to contribute to this project can be found in [CONTRIBUTING.md](https://github.com/tobiipro/g3pylib/blob/v0.3.0-alpha/CONTRIBUTING.md).
