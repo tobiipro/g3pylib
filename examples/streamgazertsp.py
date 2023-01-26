@@ -41,7 +41,7 @@ async def stream_rtsp():
                         fix = (int(gaze2d[0] * w), int(gaze2d[1] * h))
 
                         # Draw gaze
-                        img = cv2.circle(frame, fix, 10, (0, 0, 255), 3)
+                        frame = cv2.circle(frame, fix, 10, (0, 0, 255), 3)
 
                     elif i % 50 == 0:
                         logging.info(
