@@ -9,7 +9,6 @@ async def test_get_name(g3: Glasses3):
     assert await g3.recordings.get_name() == "recordings"
 
 
-@pytest.mark.skip(reason="Test causes pytest to freeze")
 async def test_child_added_and_removed_signals(g3: Glasses3):
     (
         child_added_queue,
