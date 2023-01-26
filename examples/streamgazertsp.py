@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def stream_rtsp():
-    async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"]) as g3:
+    async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"], using_zeroconf=True) as g3:
         async with g3.stream_rtsp(scene_camera=True, gaze=True) as streams:
             async with streams.gaze.decode() as gaze_stream, streams.scene_camera.decode() as scene_stream:
                 for i in range(200):
@@ -29,20 +29,26 @@ async def stream_rtsp():
 
                     logging.info(f"Frame timestamp: {frame_timestamp}")
                     logging.info(f"Gaze timestamp: {gaze_timestamp}")
-                    img = frame.to_ndarray(format="bgr24")
+                    frame = frame.to_ndarray(format="bgr24")
 
+                    # If given gaze data
                     if "gaze2d" in gaze:
                         gaze2d = gaze["gaze2d"]
                         logging.info(f"Gaze2d: {gaze2d[0]:9.4f},{gaze2d[1]:9.4f}")
-                        h, w = img.shape[:2]
+
+                        # Convert rational (x,y) to pixel location (x,y)
+                        h, w = frame.shape[:2]
                         fix = (int(gaze2d[0] * w), int(gaze2d[1] * h))
-                        img = cv2.circle(img.copy(), fix, 10, (0, 0, 255), 3)
+
+                        # Draw gaze
+                        img = cv2.circle(frame, fix, 10, (0, 0, 255), 3)
+
                     elif i % 50 == 0:
                         logging.info(
                             "No gaze data received. Have you tried putting on the glasses?"
                         )
 
-                    cv2.imshow("Video", img)  # type: ignore
+                    cv2.imshow("Video", frame)  # type: ignore
                     cv2.waitKey(1)  # type: ignore
 
 
