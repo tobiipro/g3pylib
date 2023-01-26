@@ -25,7 +25,6 @@ from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Any, AsyncIterator, Coroutine, Generator, Optional, Tuple, Type, cast
 
-import dotenv
 
 import g3pylib.websocket
 from g3pylib._utils import APIComponent
@@ -46,7 +45,6 @@ __version__ = "0.3.1-alpha"
 DEFAULT_RTSP_LIVE_PATH = "/live/all"
 DEFAULT_RTSP_PORT = 8554
 DEFAULT_HTTP_PORT = 80
-dotenv.load_dotenv()
 
 _logger = logging.getLogger(__name__)
 
