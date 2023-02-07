@@ -54,7 +54,8 @@ class SignalSubscriptionHandler(ABC):
 
     def _init_signal_subscription_handling(self) -> None:
         """Initialize a subclass inheriting `SignalSubscriptionHandler` with the properties needed
-        to handle signal subscriptions. **Has to be run in the constructor of the inheriting subclass.**"""
+        to handle signal subscriptions. **Has to be run in the constructor of the inheriting subclass.**
+        """
         self._subscription_count = 0
         self._signal_id_by_uri: Dict[URI, SignalId] = {}
         self._signal_queues_by_id: Dict[

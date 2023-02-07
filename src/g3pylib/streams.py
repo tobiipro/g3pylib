@@ -143,7 +143,8 @@ class NALUnit:
     def from_fu_a(cls, fu_a: FUA) -> NALUnit:
         """Constructs `NALUnit` from an FUA.
 
-        Note that fragmented NAL unit payloads must be aggregated before they can get parsed."""
+        Note that fragmented NAL unit payloads must be aggregated before they can get parsed.
+        """
         header = fu_a.header & (cls._F_MASK | cls._NRI_MASK) | fu_a.original_type
         data = bytearray()
         data.append(header)
@@ -153,7 +154,8 @@ class NALUnit:
 
 class FUA(NALUnit):
     """A specific type of RTP NAL unit called FU-A (Fragmentation Unit type A).
-    Described in detail in RFC 6184 section [5.8](https://datatracker.ietf.org/doc/html/rfc6184#section-5.8)."""
+    Described in detail in RFC 6184 section [5.8](https://datatracker.ietf.org/doc/html/rfc6184#section-5.8).
+    """
 
     @cached_property
     def s(self) -> int:
@@ -400,7 +402,8 @@ class VideoStream(Stream):
         """Returns a queue with tuples containing the demuxed RTP stream along with timestamps.
 
         Spawns a demuxer task which parses the NAL units received in the RTP payloads.
-        It also aggregates fragmentation units of larger NAL units sent in multiple RTP packets."""
+        It also aggregates fragmentation units of larger NAL units sent in multiple RTP packets.
+        """
         nal_unit_queue: asyncio.Queue[Tuple[NALUnit, Optional[float]]] = asyncio.Queue(
             FRAME_QUEUE_SIZE
         )

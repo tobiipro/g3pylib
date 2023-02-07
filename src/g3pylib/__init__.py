@@ -202,7 +202,8 @@ class connect_to_glasses:
         The regular use cases are covered in the alternative constructors below: `with_url`, `with_zeroconf`, `with_hostname` and `with_service`.
 
         If you want to use this constructor you need to supply a couroutine which returns a tuple that contains two URLs.
-        The first URL should point to the websocket and the second URL should point to the RTSP endpoint."""
+        The first URL should point to the websocket and the second URL should point to the RTSP endpoint.
+        """
         self.url_generator = url_generator
 
     @staticmethod
@@ -251,7 +252,8 @@ class connect_to_glasses:
         If `using_ip` is set to True (default) we will generate the the URL used for connection with the ip.
         If it's set to False we will use the hostname, which will depend on DNS working as it should.
 
-        `timeout` defines the time in milliseconds before `asyncio.TimeoutError` is raised."""
+        `timeout` defines the time in milliseconds before `asyncio.TimeoutError` is raised.
+        """
         return cls(cls._urls_from_zeroconf(using_ip, timeout))
 
     @classmethod
