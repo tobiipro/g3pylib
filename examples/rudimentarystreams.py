@@ -10,7 +10,6 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def subscribe_to_signal():
-
     async with connect_to_glasses.with_hostname(os.environ["G3_HOSTNAME"]) as g3:
         imu_queue, unsubscribe = await g3.rudimentary.subscribe_to_imu()
 
