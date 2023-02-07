@@ -25,6 +25,7 @@ from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Any, AsyncIterator, Coroutine, Generator, Optional, Tuple, Type, cast
 
+
 import g3pylib.websocket
 from g3pylib._utils import APIComponent
 from g3pylib.calibrate import Calibrate
