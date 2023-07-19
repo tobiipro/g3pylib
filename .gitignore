@@ -103,6 +103,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+downloaded_recordings/
 
 # Translations
 *.mo

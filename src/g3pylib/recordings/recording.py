@@ -1,5 +1,8 @@
+import asyncio
+import base64
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import List, Optional, cast
 
@@ -171,8 +174,8 @@ class Recording(APIComponent):
         """The uuid of the recording."""
         return self._uuid
 
-    async def get_scenevideo_url(self) -> str:
-        """Returns a URL to the recording's video file."""
+    async def get_json_data(self) -> str:
+        """Returns a JSON string that holds metadata for all of the recording files."""
         if self._http_url is None:
             raise FeatureNotAvailableError(
                 "This Glasses3 object was initialized without a proper HTTP url."
@@ -180,31 +183,112 @@ class Recording(APIComponent):
         data_url = f"{self._http_url}{await self.get_http_path()}"
         async with aiohttp.ClientSession() as session:
             async with session.get(data_url) as response:
-                data = json.loads(await response.text())
+                return await response.text()
+
+    def _get_file_name_from_json_data(
+        self, data_str: str, key: str, data_url: str
+    ) -> str:
+        """Extracts the desired file name from `data_str` collected from `data_url` represented by `key`. `data_url` is used exclusively for the error message."""
+        data = json.loads(data_str)
         try:
-            scenevideo_file_name = data["scenecamera"]["file"]
-        except KeyError:
+            file_name = data[key]["file"]
+        except KeyError as exc:
             self.logger.warning(
-                f"Could not retrieve file name for recording from recording data collected from {data_url}."
+                f"Could not retrieve file name for {key} data from recording data collected from {data_url}."
             )
-            raise InvalidResponseError
+            raise InvalidResponseError from exc
+        return file_name
+
+    async def get_scenevideo_url(self) -> str:
+        """Returns a URL to the recording's video file."""
+        data_url = f"{self._http_url}{await self.get_http_path()}"
+        scenevideo_file_name = self._get_file_name_from_json_data(
+            await self.get_json_data(), "scenecamera", data_url
+        )
         return f"{data_url}/{scenevideo_file_name}"
 
     async def get_gazedata_url(self) -> str:
         """Returns a URL to the recording's decompressed gaze data file."""
-        if self._http_url is None:
-            raise FeatureNotAvailableError(
-                "This Glasses3 object was initialized without a proper HTTP url."
-            )
         data_url = f"{self._http_url}{await self.get_http_path()}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(data_url) as response:
-                data = json.loads(await response.text())
-        try:
-            gaze_file_name = data["gaze"]["file"]
-        except KeyError:
-            self.logger.warning(
-                f"Could not retrieve file name for gaze data from recording data collected from {data_url}."
-            )
-            raise InvalidResponseError
+        gaze_file_name = self._get_file_name_from_json_data(
+            await self.get_json_data(), "gaze", data_url
+        )
         return f"{data_url}/{gaze_file_name}?use-content-encoding=true"
+
+    async def download_files(self, path: str = ".") -> str:
+        """
+        Downloads all recording files into one folder under the specified `path`.
+        Returns name of the downloaded folder under `path`.
+        """
+        data_url = f"{self._http_url}{await self.get_http_path()}"
+        data_str = await self.get_json_data()
+        data_json = json.loads(data_str)
+
+        # workaround for making subsequent aiohttp clientsessions
+        # TODO: find a more appropriate solution
+        await asyncio.sleep(0.5)
+
+        # create download folder and the meta folder within it
+        folder_name = data_json["name"]
+        os.makedirs(os.path.join(path, folder_name), exist_ok=True)
+        meta_folder_name = data_json["meta-folder"]
+        os.makedirs(os.path.join(path, folder_name, meta_folder_name), exist_ok=True)
+
+        # write json data to recording.g3 file
+        with open(os.path.join(path, folder_name, "recording.g3"), "w") as f:
+            f.write(data_str)
+
+        # generate filenames and file urls
+        scenevideo_file_name = self._get_file_name_from_json_data(
+            data_str, "scenecamera", data_url
+        )
+        scenevideo_url = f"{data_url}/{scenevideo_file_name}"
+
+        gazedata_file_name = self._get_file_name_from_json_data(
+            data_str, "gaze", data_url
+        )
+        gazedata_url = f"{data_url}/{gazedata_file_name}"
+
+        eventdata_file_name = self._get_file_name_from_json_data(
+            data_str, "events", data_url
+        )
+        eventdata_url = f"{data_url}/{eventdata_file_name}"
+
+        imudata_file_name = self._get_file_name_from_json_data(
+            data_str, "imu", data_url
+        )
+        imudata_url = f"{data_url}/{imudata_file_name}"
+
+        async with aiohttp.ClientSession() as session:
+
+            async def download(url: str, file_name: str) -> None:
+                async with session.get(url) as response:
+                    with open(os.path.join(path, folder_name, file_name), "wb") as f:
+                        f.write(await response.read())
+
+            async def download_meta(key: str) -> None:
+                with open(
+                    os.path.join(path, folder_name, meta_folder_name, key), "w"
+                ) as f:
+                    encoded_value = await self.meta_lookup(key)
+                    # decode returned string if it is base64 encoded, otherwise write it raw
+                    try:
+                        value = base64.b64decode(encoded_value).decode()
+                    except ValueError:
+                        value = encoded_value
+                    f.write(value)
+
+            # get meta keys
+            meta_keys = await self.meta_keys()
+
+            # create tasks that download files and meta files
+            task_list = [
+                download(scenevideo_url, scenevideo_file_name),
+                download(gazedata_url, gazedata_file_name),
+                download(eventdata_url, eventdata_file_name),
+                download(imudata_url, imudata_file_name),
+            ] + [download_meta(key) for key in meta_keys]
+
+            await asyncio.gather(*task_list)
+
+        return folder_name

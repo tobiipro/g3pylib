@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, timedelta
+from os import path
 from typing import cast
 
 import aiohttp
@@ -111,3 +113,29 @@ async def test_get_gazedata_url(recording: Recording):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             assert response.status == 200
+
+
+async def test_download_files(recording: Recording):
+    download_path = "./downloaded_recordings"
+    folder_name = await recording.download_files(download_path)
+
+    # check recording.g3 file and read its content
+    assert path.isfile(path.join(download_path, folder_name, "recording.g3"))
+    with open(path.join(download_path, folder_name, "recording.g3"), "r") as f:
+        data_json = json.loads(f.read())
+
+    # check data files exist
+    assert path.isfile(
+        path.join(download_path, folder_name, data_json["scenecamera"]["file"])
+    )
+    assert path.isfile(path.join(download_path, folder_name, data_json["gaze"]["file"]))
+    assert path.isfile(
+        path.join(download_path, folder_name, data_json["events"]["file"])
+    )
+    assert path.isfile(path.join(download_path, folder_name, data_json["imu"]["file"]))
+
+    # check meta files exist
+    meta_folder = data_json["meta-folder"]
+    meta_keys = await recording.meta_keys()
+    for key in meta_keys:
+        assert path.isfile(path.join(download_path, folder_name, meta_folder, key))
