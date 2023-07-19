@@ -188,7 +188,10 @@ class Recording(APIComponent):
     def _get_file_name_from_json_data(
         self, data_str: str, key: str, data_url: str
     ) -> str:
-        """Extracts the desired file name from `data_str` collected from `data_url` represented by `key`. `data_url` is used exclusively for the error message."""
+        """
+        Extracts the desired file name from `data_str` collected from `data_url`
+        represented by `key`. `data_url` is used exclusively for the error message.
+        """
         data = json.loads(data_str)
         try:
             file_name = data[key]["file"]
