@@ -1,3 +1,5 @@
+Migrated to https://github.com/tobii/glasses3-pylib
+
 # Glasses3 Python Library
 
 **This library is still in alpha. It's not yet feature complete and there are no guarantees that the API will be stable.**
